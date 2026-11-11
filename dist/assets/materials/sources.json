@@ -1,0 +1,82 @@
+[
+  {
+    "file": "asphalt_02_color.jpg",
+    "asset": "asphalt_02",
+    "channel": "Diffuse",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_diff_1k.jpg",
+    "page": "https://polyhaven.com/a/asphalt_02",
+    "license": "CC0-1.0",
+    "sha256": "1aa5ce99f58a625c71d48cfc3e68b65ca85ccb00f39e045c0a928608a0ea25ed",
+    "bytes": 731707
+  },
+  {
+    "file": "asphalt_02_normal.jpg",
+    "asset": "asphalt_02",
+    "channel": "nor_gl",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_nor_gl_1k.jpg",
+    "page": "https://polyhaven.com/a/asphalt_02",
+    "license": "CC0-1.0",
+    "sha256": "42a1c381b53204e83a982db2864479a30bc127bbdeebb1006f8ee51bff099df3",
+    "bytes": 1240122
+  },
+  {
+    "file": "asphalt_02_roughness.jpg",
+    "asset": "asphalt_02",
+    "channel": "Rough",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_rough_1k.jpg",
+    "page": "https://polyhaven.com/a/asphalt_02",
+    "license": "CC0-1.0",
+    "sha256": "70ba3edc65525eb4dc366cf010ca7ae0bd34e0251ff0225c2dad627a873d0712",
+    "bytes": 544032
+  },
+  {
+    "file": "rusty_painted_metal_color.jpg",
+    "asset": "rusty_painted_metal",
+    "channel": "Diffuse",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_painted_metal/rusty_painted_metal_diff_1k.jpg",
+    "page": "https://polyhaven.com/a/rusty_painted_metal",
+    "license": "CC0-1.0",
+    "sha256": "b086937b45c3628116a838363364a29bd3c5d2542cff906ec1d92d681ee80e15",
+    "bytes": 471866
+  },
+  {
+    "file": "rusty_painted_metal_normal.jpg",
+    "asset": "rusty_painted_metal",
+    "channel": "nor_gl",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_painted_metal/rusty_painted_metal_nor_gl_1k.jpg",
+    "page": "https://polyhaven.com/a/rusty_painted_metal",
+    "license": "CC0-1.0",
+    "sha256": "f3372e2f60517df2d0e02c1472eb24071d95182d771c30b7ecd8e1b5142768bb",
+    "bytes": 484158
+  },
+  {
+    "file": "rusty_painted_metal_roughness.jpg",
+    "asset": "rusty_painted_metal",
+    "channel": "Rough",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_painted_metal/rusty_painted_metal_rough_1k.jpg",
+    "page": "https://polyhaven.com/a/rusty_painted_metal",
+    "license": "CC0-1.0",
+    "sha256": "2d1c355c793c5886ef9dcecfc06da354e30218a84a9fe28de37741d2f2ed5aaa",
+    "bytes": 318766
+  },
+  {
+    "file": "metal_plate_roughness.jpg",
+    "asset": "metal_plate",
+    "channel": "Rough",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_plate/metal_plate_rough_1k.jpg",
+    "page": "https://polyhaven.com/a/metal_plate",
+    "license": "CC0-1.0",
+    "sha256": "756308485ce742a52831453c296452f48cf0adead7d85adfffd34c08dce23ec1",
+    "bytes": 775206
+  },
+  {
+    "file": "metal_plate_normal.jpg",
+    "asset": "metal_plate",
+    "channel": "nor_gl",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/metal_plate/metal_plate_nor_gl_1k.jpg",
+    "page": "https://polyhaven.com/a/metal_plate",
+    "license": "CC0-1.0",
+    "sha256": "994f851a84d52b51e97906021a1b7070ee6eac9a789fef041132268de47d8e6b",
+    "bytes": 770307
+  }
+]
