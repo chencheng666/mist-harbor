@@ -18,6 +18,12 @@
   try{world.interiorEnvironment=H.captureEnvironment(renderer,scene,new T.Vector3(-19,2,20));}catch(error){console.warn('室内反射使用环境后备',error);}
   post.setSun(world.sun);
   post.onAutoQuality=q=>{quality=q;world.setQuality(q);$('#quality').value=q;};
+  // 枪灯使用真实聚光与遮挡，光轴随准星，枪口附近的灯座跟随武器动画。
+  const lamp=new T.SpotLight('#e4ebdf',65,28,.31,.68,2);lamp.castShadow=true;lamp.shadow.mapSize.set(512,512);lamp.shadow.bias=-.0002;lamp.shadow.normalBias=.012;lamp.shadow.camera.near=.12;lamp.shadow.camera.far=30;scene.add(lamp,lamp.target);
+  const lampCanvas=document.createElement('canvas');lampCanvas.width=128;lampCanvas.height=128;const lampCtx=lampCanvas.getContext('2d'),lampGradient=lampCtx.createRadialGradient(64,64,0,64,64,64);lampGradient.addColorStop(0,'#ffffff');lampGradient.addColorStop(.42,'#e9e9e9');lampGradient.addColorStop(.68,'#b0b0b0');lampGradient.addColorStop(.84,'#656565');lampGradient.addColorStop(1,'#000000');lampCtx.fillStyle=lampGradient;lampCtx.fillRect(0,0,128,128);lamp.map=new T.CanvasTexture(lampCanvas);
+  let flashlight=false;lamp.visible=false;
+  function toggleFlashlight(){if(state!=='playing')return;flashlight=!flashlight;$('#touch-light').classList.toggle('on',flashlight);toast(flashlight?'枪灯开启 · F 关闭':'枪灯关闭',1.4);}
+  const viewLightRay=new T.Raycaster();let viewSun=1;
   const keys = new Set(), ray = new T.Raycaster(), direction = new T.Vector3(), temp = new T.Vector3();
   const clock = new T.Clock(), enemies = [], effects = [], projectiles = [], touch = { x: 0, y: 0, fire: false, ads: false, use: false };
   let reloadEmpty=false,jumpBuffer=0,coyote=0,shotBloom=0,landDip=0,attackClock=0;
@@ -199,7 +205,7 @@
       if(!e.alive){e.deadTime+=dt;if(e.deadTime<2.7){if(e.type==='drone'){e.root.position.y=Math.max(.25,e.root.position.y-dt*(1+e.deadTime*5));e.root.rotation.x+=dt*2;e.root.rotation.z+=dt*4;}else e.root.position.y=-Math.max(0,e.deadTime-1.7)*.5;}else e.root.visible=false;continue;}
       e.age+=dt;e.cooldown-=dt;e.hurt=Math.max(0,e.hurt-dt);const pos=e.root.position,old=pos.clone(),dist=Math.hypot(pos.x-player.pos.x,pos.z-player.pos.z);e.senseTime-=dt;
       if(e.senseTime<=0){e.senseTime=.13+Math.random()*.06;const eye=pos.clone().add(new T.Vector3(0,e.type==='drone'?0:1,0)),dx=player.pos.x-pos.x,dz=player.pos.z-pos.z,facing=(dx*Math.sin(e.root.rotation.y)+dz*Math.cos(e.root.rotation.y))/Math.max(.1,dist);
-        e.sight=dist<37&&(e.mode==='engage'||facing>-.1||dist<5)&&visibleBetween(eye,camera.position);e.seen=e.sight?e.seen+.16:Math.max(0,e.seen-.1);
+        e.sight=dist<(flashlight?44:37)&&(e.mode==='engage'||facing>-.1||dist<5)&&visibleBetween(eye,camera.position);e.seen=e.sight?e.seen+(flashlight?.22:.16):Math.max(0,e.seen-.1);
         if(e.sight){e.lastKnown.copy(player.pos);e.lost=0;if(e.seen>.28&&e.mode!=='engage'){e.mode='engage';audio.warning(pos);for(const other of enemies)if(other!==e&&other.alive&&other.mode==='patrol'&&other.root.position.distanceTo(pos)<16){other.mode='investigate';other.lastKnown.copy(player.pos);}}}
       }
       if(!e.sight)e.lost+=dt;if(e.mode==='engage'&&e.lost>4){e.mode='search';e.searchLeft=7;e.attackToken=false;e.windup=0;}
@@ -263,7 +269,7 @@
   function updateHUD() {
     $('#hp').textContent = Math.ceil(player.hp); $('#hp-bar').style.width = player.hp + '%'; $('#hp-bar').style.background = player.hp < 30 ? '#ff876b' : '#80d9db';
     $('#ammo').textContent = String(player.ammo).padStart(2, '0'); $('#reserve').textContent = player.reserve; [...ammoPips.children].forEach((p, i) => p.classList.toggle('used', i >= player.ammo));
-    $('#weapon-status').textContent = reloadLeft > 0 ? `装填中 ${Math.ceil(reloadLeft * 10) / 10}s` : 'AR–07 / 突击步枪'; $('#reload-hint').textContent = reloadLeft > 0 ? '正在更换弹匣' : player.ammo < 8 ? '弹药不足 · R 换弹' : 'R 换弹';
+    $('#weapon-status').textContent = reloadLeft > 0 ? `装填中 ${Math.ceil(reloadLeft * 10) / 10}s` : 'AR–07 / 突击步枪'; $('#reload-hint').textContent = reloadLeft > 0 ? '正在更换弹匣' : player.ammo < 8 ? '弹药不足 · R 换弹' : (flashlight?'R 换弹 · F 关闭枪灯':'R 换弹 · F 枪灯');
     $('#stance').textContent = player.sprint ? '冲刺 / SPRINTING' : player.crouch > .5 ? '蹲伏 / CROUCHING' : ads > .5 ? '瞄准 / AIMING' : '步行 / STANDING';
     $('#timer').textContent = fmt(time); $('#kills').textContent = '击毁 ' + kills;
     const degrees = ((-player.yaw * 180 / Math.PI) % 360 + 360) % 360, dirs = ['北', '东北', '东', '东南', '南', '西南', '西', '西北']; $('#heading').textContent = `${dirs[Math.round(degrees / 45) % 8]} ${Math.round(degrees).toString().padStart(3, '0')}`;
@@ -274,10 +280,10 @@
   window.addEventListener('keydown', e => {
     if (state !== 'playing' && state !== 'paused') return;
     if (state === 'playing' && ['Space', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
-    if (e.repeat && ['KeyP', 'Escape', 'KeyQ', 'Space'].includes(e.code)) return;
+    if (e.repeat && ['KeyP', 'Escape', 'KeyQ', 'KeyF', 'Space'].includes(e.code)) return;
     if (e.code === 'KeyP' || e.code === 'Escape') { if (state === 'paused') resume(); else pause(); return; }
     if (state !== 'playing') return; keys.add(e.code);
-    if (e.code === 'KeyR') reload(); if (e.code === 'KeyQ') qAiming = !qAiming;
+    if(e.code==='KeyF')toggleFlashlight(); if (e.code === 'KeyR') reload(); if (e.code === 'KeyQ') qAiming = !qAiming;
     if(e.code==='Space')jumpBuffer=.13;
   });
   window.addEventListener('keyup', e => keys.delete(e.code));
@@ -309,6 +315,7 @@
     const release = () => { id = null; if (fire) touch.fire = false; }; element.addEventListener('pointerup', release); element.addEventListener('pointercancel', release);
   }
   lookSurface($('#look-zone')); lookSurface($('#touch-fire'), true);
+  $('#touch-light').onclick=toggleFlashlight;
   $('#touch-ads').onclick = () => touch.ads = !touch.ads; $('#touch-reload').onclick = reload; $('#touch-jump').onclick = () => { if(state==='playing')jumpBuffer=.13; };
   $('#touch-use').addEventListener('pointerdown', e => { touch.use = true; e.target.setPointerCapture(e.pointerId); }); for (const name of ['pointerup', 'pointercancel']) $('#touch-use').addEventListener(name, () => touch.use = false);
   window.addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); weapon.resize(camera.aspect); post.resize(); });
@@ -319,19 +326,22 @@
     if (state === 'playing') { time += dt; updatePlayer(dt); updateEnemies(dt); updateObjectives(dt); updateEffects(dt); hitTime = Math.max(0, hitTime - dt); hurtTime = Math.max(0, hurtTime - dt); toastTime -= dt; radioTime -= dt; if (toastTime <= 0) $('#toast').style.opacity = '0'; if (radioTime <= 0) $('#radio').style.opacity = '0'; }
     if (state === 'playing' || state === 'title') world.update(dt, elapsed, camera);
     hudAccumulator += dt; if (hudAccumulator > .05 && state === 'playing') { updateHUD(); hudAccumulator = 0; }
-    if (state !== 'title') weapon.update(dt,time,{ads,speed:player.speed,sprint:player.sprint,reload:reloadLeft>0?1-reloadLeft/reloadDuration:0,grounded:player.grounded,vy:player.vy,wet:world.terrain.inside(player.pos.x,player.pos.z)?.15:1,ammo:player.ammo,reloadEmpty,interior:world.terrain.inside(player.pos.x,player.pos.z),interiorEnvironment:world.interiorEnvironment});
+    if(frames%6===0){viewLightRay.set(camera.position,H.sunDirection);viewLightRay.far=90;viewSun=viewLightRay.intersectObjects(world.surfaces,false).length?0:1;}
+    if (state !== 'title') weapon.update(dt,time,{ads,speed:player.speed,sprint:player.sprint,reload:reloadLeft>0?1-reloadLeft/reloadDuration:0,grounded:player.grounded,vy:player.vy,wet:world.terrain.inside(player.pos.x,player.pos.z)?.15:1,ammo:player.ammo,reloadEmpty,interior:world.terrain.inside(player.pos.x,player.pos.z),interiorEnvironment:world.interiorEnvironment,worldQuaternion:camera.quaternion,sunVisible:viewSun});
+    lamp.visible=flashlight&&state!=='title';if(lamp.visible){weapon.worldPoint(new T.Vector3(.048,.006,-.40),camera,lamp.position);lamp.target.position.copy(camera.position).addScaledVector(camera.getWorldDirection(new T.Vector3()),24);lamp.castShadow=quality!=='low';}
     audio.update(dt,camera,enemies.some(e=>e.alive&&e.mode==='engage')?1:cut>0?.3:.08,world.terrain.inside(camera.position.x,camera.position.z));
     post.updateBudget(realDt,state==='playing'||state==='title');
     renderer.shadowMap.autoUpdate=quality==='high'||frames%2===0;
     post.render(scene,elapsed,state!=='title'?weapon:null,{ads,damage:hurtTime,lowHealth:Math.max(0,1-player.hp/35)});
     if (++frames >= 3 && H.art.ready && !window.__harborReady) { hide('#loading'); window.__harborReady = true; }
   }
-  window.__harbor = { snapshot: () => ({ version:'0.3.0', state, hp: +player.hp.toFixed(2), ammo: player.ammo, reserve: player.reserve, reloading: reloadLeft > 0, ads: +ads.toFixed(2), cut, kills, shots, hits, time: +time.toFixed(2), player: { x: +player.pos.x.toFixed(2), y: +player.pos.y.toFixed(2), z: +player.pos.z.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) }, enemies: enemies.filter(e => e.alive).map(e => ({ id: e.id, type: e.type, hp: e.hp, x: +e.root.position.x.toFixed(2), y: +e.root.position.y.toFixed(2), z: +e.root.position.z.toFixed(2), alert:e.alert,mode:e.mode,windup:+e.windup.toFixed(2) })), quality, fps: Math.round(fps), errors: [...errors], assetsFailed:[...H.art.failed], drawCalls: renderer.info.render.calls, geometries: renderer.info.memory.geometries, rendering:{...post.diagnostics}, materials:H.art.stats(),effects:fx.stats(),weapon:weapon.stats(),audio:audio.stats() }) };
+  window.__harbor = { snapshot: () => ({ version:'1.0.0', state, flashlight, hp: +player.hp.toFixed(2), ammo: player.ammo, reserve: player.reserve, reloading: reloadLeft > 0, ads: +ads.toFixed(2), cut, kills, shots, hits, time: +time.toFixed(2), player: { x: +player.pos.x.toFixed(2), y: +player.pos.y.toFixed(2), z: +player.pos.z.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3) }, enemies: enemies.filter(e => e.alive).map(e => ({ id: e.id, type: e.type, hp: e.hp, x: +e.root.position.x.toFixed(2), y: +e.root.position.y.toFixed(2), z: +e.root.position.z.toFixed(2), alert:e.alert,mode:e.mode,windup:+e.windup.toFixed(2) })), quality, fps: Math.round(fps), errors: [...errors], assetsFailed:[...H.art.failed], drawCalls: renderer.info.render.calls, geometries: renderer.info.memory.geometries, rendering:{...post.diagnostics}, materials:H.art.stats(),effects:fx.stats(),weapon:weapon.stats(),audio:audio.stats() }) };
   // 仅显式测试地址提供可控验收接口，正常游戏不启用。
   if (new URLSearchParams(location.search).has('test')) window.__harbor.test = {
     start,pause,resume,reload,shoot,damagePlayer,setQuality,
     setTime(value){elapsed=value;},setAutomatic(value){post.setAutomatic(value);$('#auto-quality').checked=!!value;},
-    inspectWorld:()=>({collisions:world.collisions.length,shelter:world.shelter,reflection:[world.terrain.reflection.width,world.terrain.reflection.height]}),
+    sceneMeshes:()=>scene.children.filter(o=>o.isInstancedMesh).map(o=>({id:o.id,count:o.count,material:o.material.color?.getHexString(),visible:o.visible,cast:o.castShadow,bounds:o.boundingSphere?{center:o.boundingSphere.center.toArray(),radius:o.boundingSphere.radius}:null})),
+    inspectWorld:()=>({staticInstances:world.staticInstances,expectedInstances:world.expectedInstances,collisions:world.collisions.length,shelter:world.shelter,reflection:[world.terrain.reflection.width,world.terrain.reflection.height]}),
     setPlayer(data) { if (data.x != null) player.pos.x = data.x; if (data.z != null) player.pos.z = data.z; if (data.y != null) player.pos.y = data.y; for (const k of ['hp', 'ammo', 'reserve', 'yaw', 'pitch', 'invulnerable']) if (k in data) player[k] = data[k]; updateCamera(); updateHUD(); },
     aimAt(id) { const e = enemies.find(e => e.id === id); if (!e) return; const p = e.root.position.clone().add(new T.Vector3(0, e.type === 'drone' ? 0 : .85, 0)).sub(camera.position); player.yaw = Math.atan2(-p.x, -p.z); player.pitch = Math.atan2(p.y, Math.hypot(p.x, p.z)); recoil = 0; updateCamera(); },
     spawn: spawnEnemy, interact(value) { touch.use = value; }, snapshots: () => world.beacons.map(b => ({ id: b.id, x: b.pos.x, z: b.pos.z, off: b.off, progress: b.progress })), clearEnemies(){enemies.forEach(e=>{scene.remove(e.root);e.dispose();e.alive=false;});enemies.length=0; },

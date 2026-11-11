@@ -4,7 +4,7 @@
   const T = THREE;
   H.createEnemyModel = function (type, mats) {
     const root=new T.Group(),body=new T.Group(),parts=[],rotors=[],legs=[],feet=[],footStates=[];root.add(body);let lastPos=new T.Vector3(),first=true,stepPhase=0;
-    const armor=H.weatherMaterial(new T.MeshStandardMaterial({color:'#9aa6a3',roughness:.58,metalness:.45,map:H.art.texture('rusty_painted_metal_color',1,1),normalMap:H.art.texture('metal_plate_normal'),normalScale:new T.Vector2(.12,.12)}));
+    const armor=H.weatherMaterial(new T.MeshStandardMaterial({color:'#727e7b',roughness:.58,metalness:.45,map:H.art.texture('rusty_painted_metal_color',1,1),normalMap:H.art.texture('metal_plate_normal'),normalScale:new T.Vector2(.12,.12)}));
     const eye=new T.MeshStandardMaterial({color:'#ffab50',emissive:'#ff6d21',emissiveIntensity:2.5,roughness:.2});
     function add(g,m,x=0,y=0,z=0,parent=body){const o=new T.Mesh(g,m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);parts.push(o);return o;}
     function rounded(w,h,d,x,y,z,m,parent=body){const shape=new T.Shape(),r=Math.min(w,h)*.15;shape.moveTo(-w/2+r,-h/2);shape.lineTo(w/2-r,-h/2);shape.quadraticCurveTo(w/2,-h/2,w/2,-h/2+r);shape.lineTo(w/2,h/2-r);shape.quadraticCurveTo(w/2,h/2,w/2-r,h/2);shape.lineTo(-w/2+r,h/2);shape.quadraticCurveTo(-w/2,h/2,-w/2,h/2-r);shape.lineTo(-w/2,-h/2+r);shape.quadraticCurveTo(-w/2,-h/2,-w/2+r,-h/2);const g=new T.ExtrudeGeometry(shape,{depth:d,bevelEnabled:true,bevelSize:.012,bevelThickness:.012,bevelSegments:1,curveSegments:3});g.translate(0,0,-d/2);return add(g,m,x,y,z,parent);}
@@ -31,6 +31,41 @@
         foot.userData.noMerge=true;legs.push({hip,knee,x,z});feet.push(foot);footStates.push({x:0,z:0,from:new T.Vector3(),to:new T.Vector3(),p:new T.Vector3(),phase:1});
       }
     }
+    // 装甲板、散热片、密封接缝和关节电机将机体分解成可辨认的真实构件。
+    const fastener=new T.MeshStandardMaterial({color:'#89948f',metalness:.86,roughness:.4});
+    const chassis=new T.MeshStandardMaterial({color:'#293337',metalness:.7,roughness:.55});
+    function motor(r,len,x,y,z,parent=body){const o=add(new T.CylinderGeometry(r,r,len,20),chassis,x,y,z,parent);o.rotation.z=Math.PI/2;const cap=add(new T.CylinderGeometry(r*.76,r*.76,len+.008,20),fastener,x,y,z,parent);cap.rotation.z=Math.PI/2;for(let j=0;j<4;j++){const a=j*Math.PI/2;const bolt=add(new T.CylinderGeometry(r*.085,r*.085,len+.018,8),mats.dark,x,y+Math.cos(a)*r*.54,z+Math.sin(a)*r*.54,parent);bolt.rotation.z=Math.PI/2;}}
+    function cable(points,r=.012,parent=body){return add(new T.TubeGeometry(new T.CatmullRomCurve3(points.map(p=>new T.Vector3(...p))),12,r,6,false),mats.rubber,0,0,0,parent);}
+    if(type==='walker'){
+      rounded(.42,.035,.60,0,.342,-.09,armor);for(const x of[-.17,.17])for(const z of[-.32,.12])add(new T.CylinderGeometry(.014,.014,.008,8),fastener,x,.368,z);
+      for(const x of[-1,1]){
+        rounded(.025,.21,.72,x*.323,.01,-.02,chassis);
+        for(let j=0;j<12;j++)rounded(.035,.010,.10,x*.343,.07-j*.010,-.32,fastener);
+        rod([x*.28,-.12,-.42],[x*.28,-.12,.36],.020,chassis);
+        cable([[x*.29,-.07,-.38],[x*.39,-.10,-.26],[x*.37,-.09,-.06],[x*.30,-.10,.02]],.014);
+      }
+      // 激光雷达有镜窗和保护座，灯带与作为弱点的前视传感器分别绘制。
+      add(new T.CylinderGeometry(.11,.13,.10,24),chassis,0,.39,-.23);
+      add(new T.CylinderGeometry(.092,.092,.065,24),mats.dark,0,.465,-.23);add(new T.CylinderGeometry(.11,.11,.018,24),armor,0,.51,-.23);
+      for(const l of legs){motor(.105,.17,l.x*.025,0,0,l.hip);motor(.082,.12,0,0,0,l.knee);
+        rod([l.x*.045,-.04,-.06],[l.x*.045,-.30,-.06],.023,chassis,l.hip);rod([l.x*.045,-.20,-.06],[l.x*.045,-.39,-.06],.012,fastener,l.hip);
+        cable([[l.x*.07,-.04,.07],[l.x*.09,-.17,.10],[l.x*.065,-.35,.07]],.009,l.hip);
+        for(const toe of[-1,1])rounded(.061,.033,.11,toe*.044,-.448,.075,mats.rubber,l.knee);
+        rounded(.065,.016,.20,0,-.385,.025,armor,l.knee);
+      }
+      for(const side of[-1,1]){rod([side*.19,.10,.48],[side*.19,.10,.79],.019,chassis);const optic=add(new T.CylinderGeometry(.038,.038,.025,16),mats.dark,side*.083,.11,.76);optic.rotation.x=Math.PI/2;}
+    }else{
+      for(const x of[-1,1])for(const z of[-1,1]){
+        rounded(.16,.03,.16,x*.72,.105,z*.57,armor);for(let j=0;j<8;j++){const a=j*Math.PI/4;rod([x*.72,.09,z*.57],[x*.72+Math.cos(a)*.25,.09,z*.57+Math.sin(a)*.25],.006,chassis);}
+        const motor=add(new T.CylinderGeometry(.074,.066,.11,20),fastener,x*.72,.13,z*.57);
+        cable([[x*.24,.06,z*.20],[x*.44,.06,z*.42],[x*.69,.08,z*.57]],.009);
+        rounded(.055,.018,.03,x*.72,.12,z*.83,z>0?eye:mats.cyanGlow);
+      }
+      rounded(.33,.04,.43,0,.245,-.025,armor);for(const x of[-.13,.13])rounded(.035,.065,.48,x,.23,-.025,mats.rubber);
+      for(let j=0;j<9;j++)rounded(.31,.009,.012,0,.165,-.20+j*.045,chassis);
+      rod([.17,.19,-.20],[.21,.46,-.25],.009,chassis);add(new T.SphereGeometry(.024,8,6),mats.dark,.21,.46,-.25);
+      for(const x of[-.08,.08]){const barrel=add(new T.CylinderGeometry(.023,.023,.20,16),chassis,x,-.19,.40);barrel.rotation.x=Math.PI/2;}
+    }
     const groups=[];root.traverse(o=>{if(o.isGroup)groups.push(o);});groups.reverse().forEach(g=>H.mergeParts(g));parts.length=0;root.traverse(o=>{if(o.isMesh)parts.push(o);});
     function animate(dt,time,moving,turn=0,alert=false,hurt=0,telegraph=0){
       eye.emissiveIntensity=telegraph>0?6+Math.sin(time*35)*2:hurt>0?7:alert?3.4:1.6;
@@ -46,7 +81,7 @@
       });
       body.position.y=.91+Math.sin(stepPhase*Math.PI*2)*.012*Math.min(1,speed);body.rotation.z=T.MathUtils.damp(body.rotation.z,turn*.035,8,dt);body.rotation.x=T.MathUtils.damp(body.rotation.x,-moving*.018+(hurt>0?.06:0),8,dt);lastPos.copy(root.position);
     }
-    return{root,parts,rotors,legs,animate,dispose(){const geos=new Set();root.traverse(o=>{if(o.isMesh)geos.add(o.geometry);});geos.forEach(g=>g.dispose());armor.dispose();eye.dispose();}};
+    return{root,parts,rotors,legs,animate,dispose(){const geos=new Set();root.traverse(o=>{if(o.isMesh)geos.add(o.geometry);});geos.forEach(g=>g.dispose());armor.dispose();eye.dispose();fastener.dispose();chassis.dispose();}};
   };
   H.createAudio=function(){
     let ctx,master,compressor,rainGain,windGain,outReverb,inReverb,outMix,inMix,musicGain,enabled=true,paused=true,intensity=0,interior=0,shotIndex=0,beat=0;const buffers=new Map(),voices=[];

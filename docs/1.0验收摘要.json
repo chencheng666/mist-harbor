@@ -1,0 +1,124 @@
+{
+  "version": "1.0.0",
+  "tests": [
+    {
+      "name": "场景实例数量完整，未被重复合批",
+      "result": "通过"
+    },
+    {
+      "name": "三座信标与撤离路线可达",
+      "result": "通过"
+    },
+    {
+      "name": "键盘开启枪灯",
+      "result": "通过"
+    },
+    {
+      "name": "键盘关闭枪灯",
+      "result": "通过"
+    },
+    {
+      "name": "空仓换弹与有限备用弹药",
+      "result": "通过"
+    },
+    {
+      "name": "战术换弹",
+      "result": "通过"
+    },
+    {
+      "name": "暂停冻结计时并屏蔽战斗操作",
+      "result": "通过"
+    },
+    {
+      "name": "新堆场集装箱碰撞",
+      "result": "通过"
+    },
+    {
+      "name": "集装箱阻断射线",
+      "result": "通过"
+    },
+    {
+      "name": "连续射击、命中与机械守卫击毁",
+      "result": "通过"
+    },
+    {
+      "name": "跳跃起落",
+      "result": "通过"
+    },
+    {
+      "name": "蹲伏与恢复",
+      "result": "通过"
+    },
+    {
+      "name": "准直瞄准与视角过渡",
+      "result": "通过"
+    },
+    {
+      "name": "关闭信标 A",
+      "result": "通过"
+    },
+    {
+      "name": "关闭信标 B",
+      "result": "通过"
+    },
+    {
+      "name": "关闭信标 C",
+      "result": "通过"
+    },
+    {
+      "name": "三座信标与撤离结算",
+      "result": "通过"
+    },
+    {
+      "name": "失败结算",
+      "result": "通过"
+    },
+    {
+      "name": "流畅画质与后备路径",
+      "result": "通过"
+    },
+    {
+      "name": "精细画质与完整 HDR",
+      "result": "通过"
+    },
+    {
+      "name": "检修棚混响与枪灯",
+      "result": "通过"
+    }
+  ],
+  "routeChecks": [
+    "A",
+    "B",
+    "C",
+    "撤离"
+  ],
+  "staticInstances": 4823,
+  "restartGeometryCounts": [
+    325,
+    325,
+    325,
+    325
+  ],
+  "mobile": {
+    "simulated": true,
+    "viewport": [
+      844,
+      390
+    ],
+    "multiTouch": true,
+    "shootReloadFlashlight": true
+  },
+  "offline": {
+    "version": "1.0.0",
+    "httpRequests": 0,
+    "testApi": false,
+    "shots": 3
+  },
+  "size": {
+    "version": "1.0.0",
+    "staticBytes": 853568,
+    "offlineBytes": 853360,
+    "offlineMiB": 0.814,
+    "offlineSha256": "8eac2bc2f382a201ef5d6286c48006c93d64590f48cf3b28c6d905d33555a72c"
+  }
+}

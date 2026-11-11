@@ -5,3 +5,5 @@
 .is-touch .health{width:138px;top:116px}.is-touch .health>div:first-child{gap:8px}.is-touch .health b{font-size:9px;white-space:nowrap}.is-touch .health strong{font-size:24px}.is-touch .health small{font-size:8px}.is-touch #reload-hint{display:none}.is-touch #touch-jump{bottom:169px}.is-touch #touch-reload{bottom:159px}
 @media(max-height:450px){.screen{padding:18px 4.5vw}.screen footer{display:none}.title-content{padding:10px 0}.title-content h1{font-size:64px;margin:12px 0}.title-content h1 small{font-size:18px}.premise{line-height:1.7;margin:12px 0 18px}.brief{margin-top:15px}.scene-note{bottom:35px}.is-touch #radio{bottom:20px}.is-touch #radio p{font-size:10px;padding:7px 12px}}
 .modal{display:flex;align-items:flex-start;justify-content:center}.panel{margin:auto 0;flex-shrink:0}
+
+#touch-light{right:205px;bottom:78px}#touch-light.on{border-color:#ffd18f;background:#c28b3e77;color:#ffe5bd}

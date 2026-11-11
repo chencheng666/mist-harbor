@@ -1,9 +1,9 @@
-/* 0.3 画质核心：程序化 PBR、天空环境、接触软阴影和分辨率自适应 HDR 管线。 */
+/* 1.0 画质核心：多尺度程序材质、风暴天空、接触阴影与 HDR。 */
 window.Harbor = window.Harbor || {};
 (function (H) {
   'use strict';
   const T = THREE;
-  H.sunDirection = new T.Vector3(-.38, .255, -.85).normalize();
+  H.sunDirection = new T.Vector3(-.29, .13, -.95).normalize();
   H.glslNoise = `
     float hHash(vec2 p){return fract(sin(dot(p,vec2(137.13,269.57)))*43758.5453);}
     float hNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hHash(i),hHash(i+vec2(1,0)),f.x),mix(hHash(i+vec2(0,1)),hHash(i+1.),f.x),f.y);}
@@ -13,14 +13,17 @@ window.Harbor = window.Harbor || {};
     const material = new T.ShaderMaterial({side:T.BackSide,depthWrite:false,fog:false,uniforms:{time:{value:0},sun:{value:H.sunDirection},environment:{value:0}},
       vertexShader:'varying vec3 vSky;void main(){vSky=position;vec4 p=projectionMatrix*mat4(mat3(viewMatrix))*vec4(position,1.);gl_Position=p.xyww;}',
       fragmentShader:`varying vec3 vSky;uniform vec3 sun;uniform float time,environment;${H.glslNoise}
-      void main(){vec3 d=normalize(vSky);float y=max(0.,d.y),mu=max(0.,dot(d,sun));float facing=pow(max(0.,dot(normalize(d.xz+.001),normalize(sun.xz))),5.);
-        vec3 horizon=mix(vec3(.33,.43,.48),vec3(1.25,.67,.29),facing);vec3 clear=mix(horizon,vec3(.055,.105,.17),smoothstep(0.,.85,y));
-        vec2 p=d.xz/(y+.12)*1.45+vec2(time*.003,-time*.0013);float n=hFbm(p+hNoise(p*.5)*1.8),edge=.10+.16*facing;
-        float cloud=smoothstep(.40,.66,n)*smoothstep(edge-.09,edge+.14,y);cloud*=1.-smoothstep(.97,.999,mu)*.85;
-        float relief=clamp((n-hFbm(p+sun.xz*.23))*4.+.5,0.,1.);vec3 cold=mix(vec3(.10,.16,.21),vec3(.027,.045,.07),n);
-        vec3 rim=vec3(1.9,.87,.32)*facing*(.14+relief*relief)*exp(-abs(y-edge)*4.);vec3 col=mix(clear,cold*(.65+relief)+rim,cloud*.94);
-        col+=vec3(1.,.75,.43)*pow(mu,40.)*.8;col+=vec3(1.,.86,.64)*smoothstep(.9995,.99988,mu)*32.*(1.-environment);
-        if(d.y<0.)col=mix(horizon*.4,vec3(.025,.035,.04),smoothstep(0.,.25,-d.y));gl_FragColor=vec4(max(col,vec3(0)),1.);
+      void main(){vec3 d=normalize(vSky);float y=max(0.,d.y),mu=max(0.,dot(d,sun));float facing=pow(max(0.,dot(normalize(d.xz+.001),normalize(sun.xz))),7.);
+        vec3 horizon=mix(vec3(.19,.27,.34),vec3(.84,.51,.26),facing);vec3 clear=mix(horizon,vec3(.035,.065,.115),smoothstep(0.,.7,y));
+        vec2 p=d.xz/(y+.19)*2.2+vec2(time*.003,-time*.0013);vec2 warp=vec2(hFbm(p*.6),hFbm(p*.6+21.))*1.8;
+        float n=hFbm(p*1.7+warp)*.74+hFbm(p*6.5+warp)*.26,thin=hFbm(p*11.5+7.);float cloud=smoothstep(.30,.65,n+thin*.13)*smoothstep(.025,.18,y);
+        float relief=clamp((n-(hFbm(p*1.7+warp+sun.xz*.20)*.74+hFbm(p*6.5+warp+sun.xz*.35)*.26))*7.+.28,0.,1.);
+        vec3 cold=mix(vec3(.09,.13,.18),vec3(.017,.026,.045),smoothstep(.38,.7,n));
+        vec3 rim=vec3(.9,.49,.22)*facing*pow(relief,2.)*exp(-abs(y-.15)*5.);
+        vec3 col=mix(clear,cold*(.65+relief*.5)+rim,cloud*.96);
+        float sunVeil=1.-smoothstep(.46,.68,n)*.65;col+=vec3(1.,.65,.30)*pow(mu,110.)*.55*sunVeil;
+        col+=vec3(1.,.78,.46)*smoothstep(.99980,.99994,mu)*20.*sunVeil*(1.-environment);
+        if(d.y<0.)col=mix(horizon*.3,vec3(.018,.025,.035),smoothstep(0.,.2,-d.y));gl_FragColor=vec4(max(col,vec3(0)),1.);
       }`});
     const mesh=new T.Mesh(new T.SphereGeometry(450,24,12),material);mesh.frustumCulled=false;mesh.renderOrder=-1000;return mesh;
   };
@@ -29,21 +32,30 @@ window.Harbor = window.Harbor || {};
     const hash=(x,y)=>{let n=Math.imul(x,374761393)^Math.imul(y,668265263);n=Math.imul(n^(n>>>13),1274126177);return((n^(n>>>16))>>>0)/4294967296;};
     const noise=(x,y)=>{const a=Math.floor(x),b=Math.floor(y);let u=x-a,v=y-b;u=u*u*(3-2*u);v=v*v*(3-2*v);return T.MathUtils.lerp(T.MathUtils.lerp(hash(a,b),hash(a+1,b),u),T.MathUtils.lerp(hash(a,b+1),hash(a+1,b+1),u),v);};
     const tex=(data,size,color=false)=>{const t=new T.DataTexture(data,size,size,T.RGBAFormat);t.wrapS=t.wrapT=T.RepeatWrapping;t.magFilter=T.LinearFilter;t.minFilter=T.LinearMipmapLinearFilter;t.generateMipmaps=true;t.anisotropy=anisotropy;if(color)t.colorSpace=T.SRGBColorSpace;t.needsUpdate=true;return t;};
-    // 一份高度场派生颜色、法线与粗糙度，不随发行包携带扫描图片。
+    // 三种尺度的连续高度控制凹凸；粗糙度只描述表面，不将颜色噪声直接冒充金属。
     function generate(kind,size=512){const c=new Uint8Array(size*size*4),r=new Uint8Array(c.length),n=new Uint8Array(c.length),height=new Float32Array(size*size);
-      for(let y=0;y<size;y++)for(let x=0;x<size;x++){const i=y*size+x,k=i*4,u=x/size,v=y/size,fine=hash(x,y),broad=noise(u*8,v*8),grain=noise(u*58,v*58);let col,rough,h;
-        if(kind==='asphalt'){const stone=Math.max(0,grain-.57),crack=Math.pow(Math.max(0,1-Math.abs(noise(u*15+3,v*15)-.5)*38),5);const g=70+broad*25+fine*22+stone*46-crack*29;col=[g*.94,g,g*1.02];rough=175+grain*45;h=grain*.46+fine*.16-crack*.3;}
-        else if(kind==='paint'){const flake=noise(u*45,v*22)*.65+noise(u*130,v*80)*.35,rust=T.MathUtils.smoothstep(flake,.66,.83),streak=noise(u*78,v*3)*noise(u*17,v*8);const g=185+broad*24+fine*9-streak*35;col=[g*(1-rust)+132*rust,g*(1-rust)+88*rust,g*(1-rust)+60*rust];rough=145+rust*94+grain*25;h=grain*.12-rust*.14;}
-        else{const brushed=noise(u*300,v*7),g=158+brushed*32+fine*17;col=[g,g*1.01,g*1.025];rough=125+brushed*80;h=brushed*.12+fine*.025;}
+      const tile=(x,y,f)=>{let a=Math.floor(x),b=Math.floor(y),u=x-a,v=y-b;u=u*u*(3-2*u);v=v*v*(3-2*v);const wrap=k=>(k%f+f)%f;return T.MathUtils.lerp(T.MathUtils.lerp(hash(wrap(a),wrap(b)),hash(wrap(a+1),wrap(b)),u),T.MathUtils.lerp(hash(wrap(a),wrap(b+1)),hash(wrap(a+1),wrap(b+1)),u),v);};
+      for(let y=0;y<size;y++)for(let x=0;x<size;x++){const i=y*size+x,k=i*4,u=x/size,v=y/size,fine=hash(x,y),broad=tile(u*8,v*8,8),grain=tile(u*90,v*90,90);let col,rough,h;
+        if(kind==='asphalt'){
+          const aggregate=T.MathUtils.smoothstep(grain,.36,.65),binder=tile(u*160,v*160,160),g=45+aggregate*24+broad*9+(fine-.5)*13;
+          col=[g*.97,g,g*1.025];rough=180+grain*52;h=aggregate*.42+binder*.12+fine*.09;
+        }else if(kind==='paint'){
+          const fineStreak=tile(u*96,v*8,96),streak=tile(u*29,v*4,29),pit=tile(u*180,v*180,180);
+          const rust=T.MathUtils.smoothstep(tile(u*43,v*61,43)*.70+pit*.30,.77,.92),g=200+broad*14+(fine-.5)*7-streak*16-fineStreak*9;
+          col=[g*(1-rust)+91*rust,g*(1-rust)+54*rust,g*(1-rust)+31*rust];rough=171+rust*65+grain*15;h=grain*.022+fine*.009-rust*.08;
+        }else if(kind==='concrete'){
+          const pore=Math.pow(Math.max(0,1-grain*1.6),4),g=136+broad*27+(fine-.5)*16-pore*42;col=[g*1.02,g,g*.95];rough=218+grain*30;h=grain*.19+fine*.07-pore*.12;
+        }else if(kind==='wood'){
+          const streak=tile(u*98,v*6,98),ring=Math.pow(Math.sin(u*180+tile(u*8,v*6,8)*8)*.5+.5,7),g=115+streak*35-ring*27;col=[g,g*.79,g*.56];rough=210+grain*30;h=streak*.14-ring*.08;
+        }else{const brushed=tile(u*240,v*8,240),g=178+brushed*14+(fine-.5)*10;col=[g,g*1.01,g*1.02];rough=150+brushed*36;h=brushed*.022+fine*.012;}
         c[k]=col[0];c[k+1]=col[1];c[k+2]=col[2];c[k+3]=255;r[k]=r[k+1]=r[k+2]=rough;r[k+3]=255;height[i]=h;
       }
       for(let y=0;y<size;y++)for(let x=0;x<size;x++){const k=(y*size+x)*4,dx=(height[y*size+(x+1)%size]-height[y*size+(x+size-1)%size])*2,dy=(height[((y+1)%size)*size+x]-height[((y+size-1)%size)*size+x])*2,l=Math.hypot(dx,dy,1);n[k]=(-dx/l*.5+.5)*255;n[k+1]=(-dy/l*.5+.5)*255;n[k+2]=(1/l*.5+.5)*255;n[k+3]=255;}
       return{color:tex(c,size,true),normal:tex(n,size),roughness:tex(r,size)};
     }
-    const road=generate('asphalt'),paint=generate('paint'),metal=generate('metal',256);
-    for(const [prefix,set]of[['asphalt_02',road],['rusty_painted_metal',paint],['metal_plate',metal]])for(const k of ['color','normal','roughness'])maps[prefix+'_'+k]=set[k];
+    for(const [prefix,kind]of[['asphalt_02','asphalt'],['rusty_painted_metal','paint'],['metal_plate','metal'],['harbor_concrete','concrete'],['harbor_wood','wood']]){const set=generate(kind);for(const k of ['color','normal','roughness'])maps[prefix+'_'+k]=set[k];}
     const envScene=new T.Scene(),sky=H.createSky();sky.material.uniforms.environment.value=1;envScene.add(sky);const generator=new T.PMREMGenerator(renderer),env=generator.fromScene(envScene,0,.1,500);generator.dispose();sky.geometry.dispose();sky.material.dispose();
-    return{ready:true,failed,maps,environment:env.texture,procedural:true,texture(name,x=1,y=x){const key=name+':'+x+':'+y;if(!cache.has(key)){const t=maps[name].clone();t.repeat.set(x,y);t.needsUpdate=true;cache.set(key,t);}return cache.get(key);},stats:()=>({proceduralSets:3,textures:Object.keys(maps).length,cachedVariants:cache.size})};
+    return{ready:true,failed,maps,environment:env.texture,procedural:true,texture(name,x=1,y=x){const key=name+':'+x+':'+y;if(!cache.has(key)){const t=maps[name].clone();t.repeat.set(x,y);t.needsUpdate=true;cache.set(key,t);}return cache.get(key);},stats:()=>({proceduralSets:5,textures:Object.keys(maps).length,cachedVariants:cache.size})};
   };
   // 材质共享世界空间湿度，朝上面、水痕与脚部溅湿具有不同强度。
   H.weather={wet:{value:1},time:{value:0}};
@@ -54,7 +66,7 @@ window.Harbor = window.Harbor || {};
       shader.fragmentShader='varying vec3 vHWorld;uniform float hWet,hTime;\n'+H.glslNoise+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
         vec3 hWN=inverseTransformDirection(normalize(vNormal),viewMatrix);float hUp=smoothstep(-.2,.8,hWN.y);float hStreak=hNoise(vec2(vHWorld.x+vHWorld.z,vHWorld.y*.06)*18.);
-        float hMoist=hWet*mix(.14+hStreak*.25,.85,hUp);float hMacro=hFbm(vHWorld.xz*.7);roughnessFactor=clamp(roughnessFactor+(hMacro-.5)*.14,.13,1.);roughnessFactor=mix(roughnessFactor,max(.09,roughnessFactor*.38),hMoist);
+        float hMoist=hWet*mix(.09+hStreak*.18,.7,hUp);float hMacro=hFbm(vHWorld.xz*.7);roughnessFactor=clamp(roughnessFactor+(hMacro-.5)*.14,.13,1.);roughnessFactor=mix(roughnessFactor,max(.09,roughnessFactor*.38),hMoist);
         diffuseColor.rgb*=1.-hMoist*.12;`);
     };material.customProgramCacheKey=()=>key+'|harbor-weather-v3-'+kind;return material;
   };
@@ -63,6 +75,7 @@ window.Harbor = window.Harbor || {};
       vec2 hDisk(int i,float count,float angle){float a=float(i)*2.399963+angle;return vec2(cos(a),sin(a))*sqrt((float(i)+.5)/count);}
       float getShadow(sampler2D shadowMap,vec2 shadowMapSize,float shadowBias,float shadowRadius,vec4 shadowCoord){
       vec3 sc=shadowCoord.xyz/shadowCoord.w;if(sc.x<0.||sc.x>1.||sc.y<0.||sc.y>1.||sc.z>1.)return 1.;
+      if(shadowMapSize.x<1500.){float light=0.;vec2 t=1./shadowMapSize;for(int x=0;x<2;x++)for(int y=0;y<2;y++){vec2 o=(vec2(float(x),float(y))-.5)*t*1.25;light+=step(sc.z+shadowBias-.00015,unpackRGBAToDepth(texture2D(shadowMap,sc.xy+o)));}return light*.25;}
       vec3 dx=dFdx(sc),dy=dFdy(sc);float det=dx.x*dy.y-dx.y*dy.x;vec2 slope=abs(det)>.00000001?vec2(dy.y*dx.z-dx.y*dy.z,dx.x*dy.z-dy.x*dx.z)/det:vec2(0.);slope=clamp(slope,vec2(-.4),vec2(.4));
       float z=sc.z+shadowBias-.0001,angle=hShadowRand(gl_FragCoord.xy)*6.28318,blocker=0.,count=0.;vec2 texel=1./shadowMapSize;
       for(int i=0;i<6;i++){vec2 o=hDisk(i,6.,angle)*.003;float d=unpackRGBAToDepth(texture2D(shadowMap,sc.xy+o));if(d<z+dot(o,slope)){blocker+=d;count+=1.;}}
@@ -89,11 +102,11 @@ window.Harbor = window.Harbor || {};
       vec3 viewPos(vec2 uv,float d){vec4 p=inverseProjection*vec4(uv*2.-1.,d*2.-1.,1.);return p.xyz/p.w;}
       float visibility(vec3 p){if(shadowOn<.5)return 1.;vec4 s=sunMatrix*vec4(p,1.);s.xyz/=s.w;if(s.x<0.||s.x>1.||s.y<0.||s.y>1.||s.z>1.)return 1.;vec4 d=texture2D(shadowMap,s.xy);float z=dot(d,vec4(.99609375,.0038909912,.0000151992,.0000000596));return step(s.z-.0008,z);}
       void main(){float d=texture2D(depth,vUv).r;vec3 p=viewPos(vUv,d),n=normalize(cross(dFdx(p),dFdy(p)));if(dot(n,-p)<0.)n=-n;float ao=0.;
-        if(d<.9999&&aoOn>.5){float radius=clamp(1.1/max(1.,-p.z),.002,.09);for(int i=0;i<10;i++){float a=float(i)*2.39996+hHash(gl_FragCoord.xy)*6.28;vec2 uv=vUv+vec2(cos(a)/ (resolution.x/resolution.y),sin(a))*radius*(.25+float(i)*.075);vec3 delta=viewPos(uv,texture2D(depth,uv).r)-p;float len=length(delta);ao+=max(0.,dot(n,delta/max(.001,len))-.08)*smoothstep(1.8,.05,len);}}
+        if(d<.9999&&aoOn>.5){float radius=clamp(1.1/max(1.,-p.z),.002,.09);for(int i=0;i<12;i++){float a=float(i)*2.39996+hHash(gl_FragCoord.xy)*6.28;vec2 uv=vUv+vec2(cos(a)/ (resolution.x/resolution.y),sin(a))*radius*(i<6?.035+float(i)*.025:.25+float(i-6)*.15);vec3 delta=viewPos(uv,texture2D(depth,uv).r)-p;float len=length(delta);ao+=max(0.,dot(n,delta/max(.001,len))-.08)*smoothstep(1.8,.05,len);}}
         vec3 wp=(inverseView*vec4(p,1.)).xyz,eye=inverseView[3].xyz,dir=normalize(wp-eye);float distance=min(length(wp-eye),100.),scatter=0.;
         if(volOn>.5){float jitter=hHash(gl_FragCoord.xy);for(int i=0;i<12;i++){float t=(float(i)+jitter)/12.;vec3 sampleP=eye+dir*distance*t*t;scatter+=visibility(sampleP)*exp(-max(sampleP.y,0.)*.11)*t;}}
-        float phase=.2+pow(max(0.,dot(dir,sunDir)),8.)*1.4;vec3 fog=vec3(1.0,.61,.30)*scatter/12.*(1.-exp(-distance*.014))*phase*.42;
-        gl_FragColor=vec4(fog,clamp(1.-ao*.18, .38,1.));}`,common);
+        float phase=.2+pow(max(0.,dot(dir,sunDir)),8.)*1.4;vec3 fog=vec3(.78,.53,.31)*scatter/12.*(1.-exp(-distance*.011))*phase*.28;
+        gl_FragColor=vec4(fog,clamp(1.-ao*.23, .28,1.));}`,common);
     const bilateral=material(`uniform sampler2D inputMap,depth;uniform vec2 direction;void main(){float z=texture2D(depth,vUv).r;vec4 c=texture2D(inputMap,vUv)*.4;float sum=.4;for(int i=1;i<=3;i++){for(int j=0;j<2;j++){vec2 uv=vUv+direction*float(i)*(j==0?1.:-1.);float w=exp(-float(i*i)*.2)*exp(-abs(texture2D(depth,uv).r-z)*2200.);c+=texture2D(inputMap,uv)*w;sum+=w;}}gl_FragColor=c/sum;}`,{inputMap:{value:half.texture},depth:common.depth,direction:{value:new T.Vector2()}});
     const down=material(`uniform sampler2D inputMap;uniform vec2 texel;uniform float first;void main(){vec3 c=texture2D(inputMap,vUv).rgb*.25;for(int i=0;i<4;i++){vec2 p=vec2(i==0||i==3?-1.:1.,i<2?-1.:1.);c+=texture2D(inputMap,vUv+p*texel).rgb*.1875;}if(first>.5)c=max(c-vec3(.9),vec3(0.));gl_FragColor=vec4(c,1.);}`,{inputMap:{value:null},texel:{value:new T.Vector2()},first:{value:1}});
     const meter=material(`uniform sampler2D inputMap,previous;uniform float rate,first;void main(){float lum=0.,weights=0.;for(int x=0;x<5;x++)for(int y=0;y<5;y++){vec2 uv=(vec2(float(x),float(y))+.5)/5.;vec3 c=texture2D(inputMap,uv).rgb;float w=1.-length(uv-.5);lum+=log(max(.025,dot(c,vec3(.2126,.7152,.0722))))*w;weights+=w;}float value=exp(lum/weights);float old=texture2D(previous,vec2(.5)).r;gl_FragColor=vec4(mix(old,value,first>.5?1.:rate),0.,0.,1.);}`,{inputMap:{value:target.texture},previous:{value:null},rate:{value:.02},first:{value:1}});
@@ -101,8 +114,8 @@ window.Harbor = window.Harbor || {};
       vec3 film(vec3 x){return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.);}
       void main(){vec2 uv=vUv;vec3 c=texture2D(color,uv).rgb;vec4 fog=texture2D(atmosphere,uv);float l=dot(c,vec3(.2126,.7152,.0722));c*=mix(1.,fog.a,aoOn*(1.-smoothstep(.5,3.,l))*.8);c+=fog.rgb;
         vec3 glow=texture2D(bloom0,uv).rgb*.35+texture2D(bloom1,uv).rgb*.3+texture2D(bloom2,uv).rgb*.2+texture2D(bloom3,uv).rgb*.15;c+=glow*.13;
-        float luminance=texture2D(exposureMap,vec2(.5)).r;float exposure=clamp(pow(.25/max(.025,luminance),.45),.67,1.45);c=film(c*mix(1.,exposure,exposureOn)*1.05);
-        float level=dot(c,vec3(.2126,.7152,.0722));c=mix(vec3(level),c,1.08);c+=vec3(-.012,.008,.015)*(1.-level)+vec3(.015,.004,-.01)*level;
+        float luminance=texture2D(exposureMap,vec2(.5)).r;float exposure=clamp(pow(.19/max(.025,luminance),.33),.72,1.18);c=film(c*mix(1.,exposure,exposureOn)*1.05);
+        float level=dot(c,vec3(.2126,.7152,.0722));c=mix(vec3(level),c,.96);c+=vec3(-.012,.008,.015)*(1.-level)+vec3(.015,.004,-.01)*level;
         float edge=smoothstep(.2,.75,length((uv-.5)*vec2(1.,.85)));c*=1.-edge*(.14+lowHealth*.3+ads*.08);c=mix(c,c*vec3(1.,.35,.24),damage*edge*.45);
         gl_FragColor=vec4(max(c,vec3(0)),1.);
         #include <colorspace_fragment>
