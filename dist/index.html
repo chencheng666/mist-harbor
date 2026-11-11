@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#111b22"><meta name="description" content="雾港：断电行动。原创雨港第一人称射击游戏，关闭信标，突破机械守卫，抵达撤离点。">
-<title>雾港：断电行动 · 陈成的游戏实验室</title><link rel="stylesheet" href="style.css">
+<title>雾港：断电行动 · 陈成的游戏实验室</title><link rel="stylesheet" href="style.css?v=0.3.0">
 </head><body>
 <div id="viewport"></div><div id="grain"></div><div id="hurt"></div><div id="flash"></div>
 <div id="loading"><span>雾港 · 正在连接行动终端</span><i></i><small id="boot-detail">正在构建港区与装备…</small></div>
 <main id="menu" class="screen">
-  <div class="topline"><span class="brand"><b>CC</b> 陈成的游戏实验室</span><span>独立游戏原型 <i>／</i> V 0.2</span></div>
+  <div class="topline"><span class="brand"><b>CC</b> 陈成的游戏实验室</span><span>独立游戏原型 <i>／</i> V 0.3</span></div>
   <div class="title-content"><div class="eyebrow"><i></i> 单人渗透行动 <span>行动代号 07</span></div>
   <h1>雾<span>港</span><small>断电行动</small></h1><p class="premise">雨幕之下，港口已经失联。<br>关闭三座信标，穿过机械防线，活着撤离。</p>
   <div class="menu-actions"><button id="start" class="primary">开始行动 <span>↗</span></button><button id="controls-btn" class="outline">操作指南 <span>＋</span></button></div>
@@ -17,7 +17,7 @@
   <footer><span>W A S D <b>移动</b>　鼠标 <b>视角</b>　左键 <b>射击</b>　E <b>交互</b></span><span>戴上耳机，进入雨幕 <i>◖◗</i></span></footer>
 </main>
 <section id="guide" class="modal hidden"><div class="panel"><div class="eyebrow">行动手册 / FIELD GUIDE</div><h2>先熟悉你的装备</h2><div class="keys"><p><kbd>W A S D</kbd><span>移动</span></p><p><kbd>鼠标</kbd><span>转动视角</span></p><p><kbd>左键 / Enter</kbd><span>射击</span></p><p><kbd>右键 / Q</kbd><span>瞄准</span></p><p><kbd>R</kbd><span>换弹</span></p><p><kbd>Shift</kbd><span>冲刺</span></p><p><kbd>Space</kbd><span>跳跃</span></p><p><kbd>C / Ctrl</kbd><span>蹲伏</span></p><p><kbd>按住 E</kbd><span>关闭信标 / 使用补给</span></p><p><kbd>Esc / P</kbd><span>暂停</span></p></div><p class="subtle">沿橙色标记寻找三座信标，关闭后前往蓝色撤离区。受伤后脱离交火可缓慢恢复。鼠标捕获不可用时，可按住拖动转向，或使用方向键。触屏设备提供摇杆和操作按钮。</p><button id="guide-close" class="primary">明白了</button></div></section>
-<section id="pause" class="modal hidden"><div class="panel"><div class="eyebrow">行动终端 / STANDBY</div><h2>稍作休整</h2><p class="subtle" id="pause-tip">行动已暂停。</p><label class="setting">画面质量<select id="quality"><option value="low">流畅</option><option value="medium" selected>均衡</option><option value="high">精细</option></select></label><label class="setting">视角灵敏度<input id="sensitivity" type="range" min="0.4" max="2" step="0.1" value="1"></label><label class="setting">声音<button id="audio-toggle" class="small">已开启</button></label><button id="resume" class="primary">返回行动 ↗</button><button id="restart" class="outline">重新部署</button></div></section>
+<section id="pause" class="modal hidden"><div class="panel"><div class="eyebrow">行动终端 / STANDBY</div><h2>稍作休整</h2><p class="subtle" id="pause-tip">行动已暂停。</p><label class="setting">画面质量<select id="quality"><option value="low">流畅</option><option value="medium" selected>均衡</option><option value="high">精细</option></select></label><label class="setting">自动平衡画质与流畅度<input id="auto-quality" type="checkbox" checked></label><label class="setting">视角灵敏度<input id="sensitivity" type="range" min="0.4" max="2" step="0.1" value="1"></label><label class="setting">声音<button id="audio-toggle" class="small">已开启</button></label><button id="resume" class="primary">返回行动 ↗</button><button id="restart" class="outline">重新部署</button></div></section>
 <section id="end" class="modal hidden"><div class="panel"><div class="eyebrow" id="end-kicker">行动报告</div><h2 id="end-title"></h2><p class="subtle" id="end-copy"></p><div id="end-stats"></div><button id="retry" class="primary">再次行动 ↗</button><button id="back-menu" class="outline">返回主界面</button></div></section>
 <div id="hud" class="hidden">
  <div class="mission"><span class="eyebrow">当前任务 <i>／</i> OP.07</span><h3 id="objective">关闭港区三座信标</h3><div id="beacon-pips"><span>A <i></i></span><span>B <i></i></span><span>C <i></i></span></div></div>
@@ -30,5 +30,5 @@
  <div class="run-stats"><span id="timer">00:00</span><i>／</i><span id="kills">击毁 0</span></div>
 </div>
 <div id="touch" class="hidden"><div id="joystick"><i></i><b></b></div><div id="look-zone"></div><button id="touch-fire">开火</button><button id="touch-ads">瞄准</button><button id="touch-reload">换弹</button><button id="touch-jump">跳跃</button><button id="touch-use">交互</button></div>
-<script src="vendor/three.min.js"></script><script src="art.js"></script><script src="world.js"></script><script src="weapon.js"></script><script src="rifle.js"></script><script src="game.js"></script>
+<script src="vendor/three.min.js?v=0.3.0"></script><script src="art.js?v=0.3.0"></script><script src="terrain.js?v=0.3.0"></script><script src="world.js?v=0.3.0"></script><script src="geometry.js?v=0.3.0"></script><script src="weapon.js?v=0.3.0"></script><script src="rifle.js?v=0.3.0"></script><script src="effects.js?v=0.3.0"></script><script src="game.js?v=0.3.0"></script>
 </body></html>

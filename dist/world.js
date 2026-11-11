@@ -9,16 +9,17 @@ window.Harbor = window.Harbor || {};
   H.createWorld = function (scene, renderer) {
     const collisions = [], surfaces = [], beacons = [], supplies = [], batches = new Map();
     const world = { collisions, surfaces, beacons, supplies, extraction: new T.Vector3(31, 0, 28) };
-    scene.background = new T.Color('#7b9199');
-    scene.fog = new T.FogExp2('#7b9199', .011);
+    scene.background = new T.Color('#71858b');
+    scene.fog = new T.FogExp2('#71858b', .0065);
     scene.environment = H.art.environment;
-    const hemi = new T.HemisphereLight('#b5d4e4', '#4b4d45', 1.05); scene.add(hemi);
-    const sun = new T.DirectionalLight('#ffd09a', 4.2); sun.position.set(-45, 26, -90); sun.castShadow = true;
+    const hemi = new T.HemisphereLight('#a6c6db', '#343c3b', .72); scene.add(hemi);
+    const sun = new T.DirectionalLight('#ffcf99', 5.6); sun.position.set(-45, 26, -90); sun.castShadow = true;
     Object.assign(sun.shadow.camera, { left: -55, right: 55, top: 65, bottom: -65, near: 1, far: 185 });
     sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -.00008; sun.shadow.normalBias = .016; sun.shadow.radius = 3;
     sun.target.position.set(0, 0, -12); scene.add(sun, sun.target); world.sun = sun;
     const unit = new T.BoxGeometry(1, 1, 1), cylinder = new T.CylinderGeometry(1, 1, 1, 12);
-    const mat = (color, roughness = .65, metalness = .3, extra = {}) => new T.MeshStandardMaterial({ color, roughness, metalness, ...extra });
+    const materialCache=new Map();
+    const mat=(color,roughness=.65,metalness=.3,extra={})=>{const key=color+'|'+roughness+'|'+metalness;if(!Object.keys(extra).length&&materialCache.has(key))return materialCache.get(key);const m=H.weatherMaterial(new T.MeshStandardMaterial({color,roughness,metalness,...extra}));if(!Object.keys(extra).length)materialCache.set(key,m);return m;};
     const metal = mat('#475659', .64, .7, {normalMap:H.art.texture('metal_plate_normal'),normalScale:new T.Vector2(.10,.10),roughnessMap:H.art.texture('metal_plate_roughness')}), iron = mat('#68777a', .58, .7), dark = mat('#26363a', .64, .5), concrete = mat('#75817c', .94, .02);
     const yellow = mat('#cf9c40', .6, .45), rubber = mat('#17232a', .96, .01);
     const orangeGlow = mat('#f7a857', .3, .3, { emissive: '#ff7b26', emissiveIntensity: 2 });
@@ -27,7 +28,7 @@ window.Harbor = window.Harbor || {};
     function box(w, h, d, x, y, z, material, collide = false, shadow = true) {
       const mesh = new T.Mesh(unit, material); mesh.scale.set(w, h, d); mesh.position.set(x, y, z);
       mesh.castShadow = shadow; mesh.receiveShadow = true; scene.add(mesh);
-      if (collide) { collisions.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, y: y + h / 2 }); surfaces.push(mesh); }
+      if (collide) { collisions.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, y: y+h/2,minY:y-h/2 }); surfaces.push(mesh); }
       return mesh;
     }
     function inst(geometry, material, x, y, z, sx, sy, sz, rx = 0, ry = 0, rz = 0) {
@@ -47,30 +48,8 @@ window.Harbor = window.Harbor || {};
       const c = document.createElement('canvas'); c.width = w; c.height = h; const ctx = c.getContext('2d'); draw(ctx, w, h);
       const tex = new T.CanvasTexture(c); tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy()); return tex;
     }
-    const asphalt = canvasTexture(512, 512, (ctx, w, h) => {
-      ctx.fillStyle = '#59636a'; ctx.fillRect(0, 0, w, h);
-      for (let i = 0; i < 52000; i++) { const g = Math.floor(50 + rand() * 100); ctx.fillStyle = `rgba(${g},${g + 5},${g + 9},${.05 + rand() * .3})`; ctx.fillRect(rand() * w, rand() * h, rand() * 2 + .5, rand() * 2 + .5); }
-      for (let i = 0; i < 40; i++) { ctx.strokeStyle = '#1a2d3a33'; ctx.lineWidth = rand() + .4; ctx.beginPath(); let x = rand() * w, y = rand() * h; ctx.moveTo(x, y); for (let j = 0; j < 8; j++) { x += rand() * 30 - 15; y += rand() * 15; ctx.lineTo(x, y); } ctx.stroke(); }
-    }); asphalt.wrapS = asphalt.wrapT = T.RepeatWrapping; asphalt.repeat.set(35, 55);
-    const groundMap = H.art.texture('asphalt_02_color', 48, 62), groundNormal = H.art.texture('asphalt_02_normal', 48, 62), groundRough = H.art.texture('asphalt_02_roughness', 48, 62);
-    const groundMaterial = new T.MeshPhysicalMaterial({ color: '#a8b4b7', map: groundMap, normalMap: groundNormal, normalScale: new T.Vector2(.7, .7), roughnessMap: groundRough, roughness: .7, metalness: .04, clearcoat: 1, clearcoatRoughness: .18, envMapIntensity: .9 });
-    const ground = new T.Mesh(new T.PlaneGeometry(220, 280), groundMaterial);
-    groundMaterial.onBeforeCompile=shader=>{shader.vertexShader='varying vec3 vWetWorld;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\n vWetWorld=(modelMatrix*vec4(transformed,1.)).xyz;');shader.fragmentShader='varying vec3 vWetWorld;\n'+shader.fragmentShader;shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
-      float wetMask=sin(vWetWorld.x*.31+sin(vWetWorld.z*.27))*sin(vWetWorld.z*.23+cos(vWetWorld.x*.47));wetMask=smoothstep(-.3,.6,wetMask);roughnessFactor=mix(max(.5,roughnessFactor),.18,wetMask*.75);`);};groundMaterial.customProgramCacheKey=()=> 'harbor-wet-asphalt-v2';
-    ground.rotation.x = -Math.PI / 2; ground.position.set(0, -.015, -25); ground.receiveShadow = true; scene.add(ground); surfaces.push(ground);
-    // 天幕与低角度日光共同构成雨港的冷暖色调。
-    const sky = new T.Mesh(new T.SphereGeometry(450, 32, 16), new T.ShaderMaterial({ side: T.BackSide, depthWrite: false, uniforms: { sun: { value: new T.Vector3(-.38, .22, -.85).normalize() } }, vertexShader: 'varying vec3 vDir; void main(){vDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}', fragmentShader: `varying vec3 vDir;uniform vec3 sun;
-      float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1)),f.x),f.y);}
-      void main(){vec3 d=normalize(vDir);float h=max(d.y,0.);float s=max(dot(d,sun),0.);vec3 col=mix(vec3(.47,.59,.64),vec3(.13,.25,.34),pow(h,.55));col+=vec3(.65,.30,.10)*pow(s,6.)+vec3(1.5,1.05,.58)*pow(s,180.);vec2 p=d.xz/(h+.2)*2.;float n=noise(p*2.)*.55+noise(p*5.)*.3+noise(p*13.)*.15;col=mix(col,col*.55,smoothstep(.38,.8,n)*smoothstep(0.,.25,h)*.7);gl_FragColor=vec4(col,1.);
-      #include <tonemapping_fragment>
-      #include <colorspace_fragment>
-      }` })); scene.add(sky);
-    // 低分辨率平面反射只绘制环境，雨水扰动在水洼着色器中完成。
-    const reflection = new T.WebGLRenderTarget(768, 432, { minFilter: T.LinearFilter, magFilter: T.LinearFilter });
-    const mirror = new T.PerspectiveCamera(74, 1, .1, 240), textureMatrix = new T.Matrix4();
-    const puddleMat = new T.ShaderMaterial({ transparent: true, depthWrite: false, uniforms: { reflection: { value: reflection.texture }, textureMatrix: { value: textureMatrix }, time: { value: 0 }, fogColor: { value: scene.fog.color }, camPos: { value: new T.Vector3() } }, vertexShader: `uniform mat4 textureMatrix; varying vec4 vProj;varying vec3 vWorld;varying vec2 vUv;void main(){vec4 w=modelMatrix*vec4(position,1.);vWorld=w.xyz;vUv=uv;vProj=textureMatrix*w;gl_Position=projectionMatrix*viewMatrix*w;}`, fragmentShader: `uniform sampler2D reflection;uniform float time;uniform vec3 camPos,fogColor;varying vec4 vProj;varying vec3 vWorld;varying vec2 vUv;float hash(vec2 p){return fract(sin(dot(p,vec2(12.989,78.233)))*43758.5453);}float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}void main(){vec2 p=vProj.xy/vProj.w;vec2 d=vec2(sin(vWorld.z*2.+time),cos(vWorld.x*2.6-time))*.00045;vec3 c=texture2D(reflection,p+d).rgb;float mask=noise(vWorld.xz*.7)*.3+noise(vWorld.xz*2.1)*.12;float edge=1.-smoothstep(.18+mask,.42+mask,length((vUv-.5)*vec2(1.,1.45)));float fres=pow(1.-abs(normalize(camPos-vWorld).y),2.);float fog=1.-exp(-.00012*pow(length(camPos-vWorld),2.));gl_FragColor=vec4(mix(c*.8+vec3(.015,.025,.03),fogColor,fog),edge*(.1+fres*.5));}` });
-    const puddles = new T.Group(); scene.add(puddles);
-    for (let i = 0; i < 38; i++) { const mesh = new T.Mesh(new T.PlaneGeometry(2 + rand() * 8, 1 + rand() * 4), puddleMat); mesh.rotation.x = -Math.PI / 2; mesh.rotation.z = rand() * 6; mesh.position.set((rand() - .5) * 65, .009, rand() * 95 - 55); puddles.add(mesh); }
+    const sky = H.createSky(); scene.add(sky);
+    const terrain = H.createTerrain(scene, renderer, world); world.terrain = terrain;
     const paint = canvasTexture(256, 512, (ctx, w, h) => {
       ctx.fillStyle = '#cbd0c9'; ctx.fillRect(0, 0, w, h);
       for (let i = 0; i < 28000; i++) { const g = Math.floor(90 + rand() * 150); ctx.fillStyle = `rgba(${g},${g},${g},${rand() * .16})`; ctx.fillRect(rand() * w, rand() * h, rand() * 3 + 1, rand() * 5 + 1); }
@@ -81,15 +60,14 @@ window.Harbor = window.Harbor || {};
     const wornMetal = H.art.texture('rusty_painted_metal_color'), wornNormal = H.art.texture('rusty_painted_metal_normal'), wornRough = H.art.texture('rusty_painted_metal_roughness');
     const containerMats = ['#7d9d98', '#be8060', '#6a8c9e', '#ada77d', '#879883'].map(c => {
       const material=mat(c,.79,.3,{map:wornMetal,normalMap:wornNormal,normalScale:new T.Vector2(.24,.24),roughnessMap:wornRough,envMapIntensity:.65});
-      material.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#ifdef USE_MAP
-        vec4 wornSample=texture2D(map,vMapUv);float gray=dot(wornSample.rgb,vec3(.299,.587,.114));wornSample.rgb=mix(vec3(gray),wornSample.rgb,.08)*2.7;diffuseColor*=wornSample;
-        #endif`);};material.customProgramCacheKey=()=> 'harbor-painted-metal-v2';return material;
+      return material;
     });
     // 波纹板使用连续梯形截面，取代规则箱体上粗大的横竖栅格。
     const corrugation = new T.BufferGeometry(), cp = [], cuv = [], ci = [], step = .285;
     for (let i = 0; i <= 42; i++) for (const phase of [0, .18, .46, .72, 1]) { const z = Math.min(11.8, i * step + phase * step) - 5.9, x = phase < .18 || phase > .72 ? 0 : .065; const u = (z + 5.9) / 11.8; cp.push(x, -1.35, z, x, 1.35, z); cuv.push(u * 3, 0, u * 3, 1); }
     const count = cp.length / 6; for (let i = 0; i < count - 1; i++) { const a = i * 2; ci.push(a,a+1,a+2,a+1,a+3,a+2); } corrugation.setAttribute('position',new T.Float32BufferAttribute(cp,3));corrugation.setAttribute('uv',new T.Float32BufferAttribute(cuv,2));corrugation.setIndex(ci);corrugation.computeVertexNormals();
     const labelTex = canvasTexture(512, 256, ctx => { ctx.fillStyle = '#e5e6ce'; ctx.font = 'bold 72px sans-serif'; ctx.fillText('EASTLINE', 28, 100); ctx.font = '28px monospace'; ctx.fillText('东 岸 货 运 / HBR–07', 30, 145); ctx.font = '19px monospace'; ctx.fillText('MAX GR. 30,480 KG', 30, 203); ctx.fillText('TARE     2,300 KG', 30, 231); });
+    const labelGeoA=new T.PlaneGeometry(2.3,1.15),labelGeoB=new T.PlaneGeometry(3.6,1.8);
     const labelMat = new T.MeshStandardMaterial({ map: labelTex, transparent: true, roughness: .8, polygonOffset: true, polygonOffsetFactor: -2 });
     function container(x, z, c, y = 1.5, length = 11.8) {
       const m = containerMats[c % containerMats.length], w = 3.05, height = 2.95;
@@ -103,8 +81,8 @@ window.Harbor = window.Harbor || {};
       const end = z + length / 2 + .025;
       for (const side of [-1, 1]) { inst(unit, m, x + side * .76, y, end, 1.46, 2.74, .07); pipe(x + side * .55, y - 1.25, end + .08, x + side * .55, y + 1.25, end + .08, .035, iron); for (const yy of [-.9, .9]) inst(unit, iron, x + side * .76, y + yy, end + .1, .9, .06, .07); }
       for(const sx of [-1,1])for(const yy of [-1.36,1.36]){inst(unit,iron,x+sx*1.42,y+yy,end+.07,.22,.18,.14);inst(unit,dark,x+sx*1.42,y+yy,end+.147,.1,.065,.015);}
-      if (rand() > .3) { const l = new T.Mesh(new T.PlaneGeometry(2.3, 1.15), labelMat); l.position.set(x, y + .28, end + .08); scene.add(l); }
-      if (rand() > .5) { const l = new T.Mesh(new T.PlaneGeometry(3.6, 1.8), labelMat); l.rotation.y = Math.PI / 2; l.position.set(x + w / 2 + .08, y + .12, z); scene.add(l); }
+      if (rand() > .3) { inst(labelGeoA,labelMat,x,y+.28,end+.08,1,1,1); }
+      if (rand() > .5) { inst(labelGeoB,labelMat,x+w/2+.08,y+.12,z,1,1,1,0,Math.PI/2); }
     }
     // 主巷贯穿堆场，左右支路通向信标，碰撞体与可见集装箱一致。
     for (const side of [-1, 1]) for (let row = 0; row < 5; row++) {
@@ -150,9 +128,6 @@ window.Harbor = window.Harbor || {};
     crane(-23, -32); crane(39, -16); crane(62, -60);
     const cityMat=mat('#607981',.9,.1),cityGlass=mat('#66818a',.45,.35);
     for (let i = 0; i < 24; i++) { const x = -120 + rand() * 245, z = -120 - rand() * 55, height = 9 + rand() * 28,w=6+rand()*8; box(w,height,8,x,height/2,z,cityMat,false,false);inst(unit,iron,x,height+.4,z,w*.7,.8,5);for(let yy=3;yy<height-1;yy+=2)inst(unit,cityGlass,x,yy,z+4.02,w*.84,.45,.03); }
-    const seaMat = new T.MeshStandardMaterial({ color: '#4b717c', metalness: .65, roughness: .27 });
-    const sea = new T.Mesh(new T.PlaneGeometry(270, 350, 40, 40), seaMat); sea.rotation.x = -Math.PI / 2; sea.position.set(178, -1.3, -35); scene.add(sea);
-    const seaBase = Float32Array.from(sea.geometry.attributes.position.array);
     box(11, 3, 45, 53, -.4, -75, mat('#4c5960', .7, .6)); box(7, 6, 12, 53, 4, -88, iron); box(6, .4, 16, 53, 7.3, -87, dark);
     for (let j = 0; j < 4; j++) inst(unit, containerMats[j], 53, 2.5 + j % 2 * 2.6, -65 - Math.floor(j / 2) * 8, 8, 2.5, 6.5);
     const lampLight = new T.PointLight('#ffb269', 22, 15, 2); lampLight.position.set(-4, 5.8, 15); scene.add(lampLight);
@@ -201,34 +176,33 @@ window.Harbor = window.Harbor || {};
     for(let z=-48;z<17;z+=5){pipe(32.6,0,z,32.6,2.6,z,.035,iron);pipe(32.6,2.55,z,32.6,2.55,z+5,.025,iron);for(let j=0;j<9;j++){pipe(32.6,.15,z+j*.55,32.6,2.45,z+j*.55+.5,.006,iron);pipe(32.6,2.45,z+j*.55,32.6,.15,z+j*.55+.5,.006,iron);}}
     // 将重复小零件合并为实例绘制，控制浏览器开销。
     for (const batch of batches.values()) { const mesh = new T.InstancedMesh(batch.geometry, batch.material, batch.list.length); batch.list.forEach((m, i) => mesh.setMatrixAt(i, m)); mesh.receiveShadow = true; mesh.castShadow = false; scene.add(mesh); }
-    const rainCount = 1700, rainGeo = new T.BufferGeometry(), rainArr = new Float32Array(rainCount * 6);
-    for (let i = 0; i < rainCount; i++) { const x = (rand() - .5) * 75, y = rand() * 30, z = (rand() - .5) * 75; rainArr.set([x, y, z, x - .08, y - .7, z + .05], i * 6); }
-    rainGeo.setAttribute('position', new T.BufferAttribute(rainArr, 3));
-    const rain = new T.LineSegments(rainGeo, new T.LineBasicMaterial({ color: '#bdced0', transparent: true, opacity: .24, depthWrite: false })); rain.frustumCulled = false; scene.add(rain);
-    const splash = new T.InstancedMesh(new T.RingGeometry(.88, 1, 16), new T.MeshBasicMaterial({ color: '#bed8d8', transparent: true, opacity: .1, side: T.DoubleSide, depthWrite: false }), 55);
-    const splashData = Array.from({length:55}, () => ({x:(rand()-.5)*55,z:rand()*85-48,phase:rand()})); scene.add(splash); const splashDummy = new T.Object3D();
-    let reflFrame = 0;
-    const dir = new T.Vector3(), up = new T.Vector3(), bias = new T.Matrix4().set(.5, 0, 0, .5, 0, .5, 0, .5, 0, 0, .5, .5, 0, 0, 0, 1);
-    world.update = (dt, time, camera) => {
-      for (let i = 0; i < rainCount; i++) { const n = i * 6; rainArr[n + 1] -= dt * 17; rainArr[n] -= dt * 1.8; if (rainArr[n + 1] < -2) { rainArr[n + 1] += 32; rainArr[n] = (rand() - .5) * 75; } rainArr[n + 3] = rainArr[n] - .08; rainArr[n + 4] = rainArr[n + 1] - .7; }
-      rainGeo.attributes.position.needsUpdate = true; rain.position.set(camera.position.x, 0, camera.position.z);
-      splashData.forEach((p,i) => { const phase=(time*.8+p.phase)%1, r=.025+phase*.18; splashDummy.position.set(p.x,.027,p.z); splashDummy.rotation.set(-Math.PI/2,0,0); splashDummy.scale.setScalar(r); splashDummy.updateMatrix(); splash.setMatrixAt(i,splashDummy.matrix); }); splash.instanceMatrix.needsUpdate=true;
-      beacons.forEach(b => { b.ring.rotation.y = time * .7; b.light.intensity = b.off ? 2 : 8 + Math.sin(time * 3) * 2; });
-      boat.position.y = -.7 + Math.sin(time * 1.3) * .08;
-      const a = sea.geometry.attributes.position;
-      for (let i = 0; i < a.count; i++) a.setZ(i, Math.sin(seaBase[i * 3] * .2 + time) * .1 + Math.sin(seaBase[i * 3 + 1] * .15 - time) * .1);
-      a.needsUpdate = true; puddleMat.uniforms.time.value = time; puddleMat.uniforms.camPos.value.copy(camera.position);
-      if (world.quality !== 'low' && reflFrame++ % (world.quality === 'high' ? 2 : 4) === 0) {
-        mirror.copy(camera); mirror.position.copy(camera.position); mirror.position.y *= -1;
-        camera.getWorldDirection(dir); dir.y *= -1; mirror.up.set(0, -1, 0); mirror.lookAt(mirror.position.clone().add(dir)); mirror.updateMatrixWorld();
-        textureMatrix.copy(bias).multiply(mirror.projectionMatrix).multiply(mirror.matrixWorldInverse);
-        puddles.visible = false; ground.visible = false; rain.visible = false;
-        const shadows = renderer.shadowMap.autoUpdate; renderer.shadowMap.autoUpdate = false;
-        renderer.setRenderTarget(reflection); renderer.render(scene, mirror); renderer.setRenderTarget(null);
-        renderer.shadowMap.autoUpdate = shadows; puddles.visible = true; ground.visible = true; rain.visible = true;
-      }
+    // 遮雨检修棚增加可进入的暗部与遮挡，入口通向补给箱和侧巷。
+    const shelterRoof=box(12.5,.20,13.5,-19,5.3,20.5,iron,true);
+    box(.16,5.2,13,-25,2.6,20.5,metal,true);
+    box(12,5.2,.16,-19,2.6,27,metal,true);
+    for(const x of [-24.7,-13.3])for(const z of [14.2,26.7])box(.18,5.2,.18,x,2.6,z,iron,true);
+    for(const x of [-23,-20,-17,-14]){pipe(x,5.15,14,x,5.15,27,.045,iron);}
+    const shelterLamp=new T.PointLight('#b9d9d3',13,12,2);shelterLamp.position.set(-19,4.5,21);scene.add(shelterLamp);
+    for(const x of [-22,-17]){box(2.2,.08,.14,x,4.8,20,cyanGlow,false,false);}
+    // 检修棚内的货架、工作台与电气柜为近景提供结构和使用痕迹。
+    for(const z of [17,22.5]){
+      for(const zz of [-1.5,1.5])for(const x of [-24.6,-23.8])inst(unit,iron,x,1.5,z+zz,.065,3,.065);
+      for(const y of [.2,1.2,2.2]){inst(unit,iron,-24.2,y,z,.9,.07,3.2);for(let j=0;j<3;j++){inst(unit,timber,-24.2,y+.3,z-1+j,.58,.53,.70);inst(unit,dark,-23.9,y+.3,z-1+j,.02,.1,.5);}}
+    }
+    box(3,.16,.95,-20,.95,26,iron,true);for(const x of[-21.3,-18.7])box(.12,.9,.72,x,.45,26,dark,true);
+    for(let j=0;j<4;j++){box(.7,2.5,.45,-16.5+j*.78,1.25,26.5,metal,true);inst(unit,dark,-16.5+j*.78,1.8,26.23,.5,.55,.025);inst(unit,cyanGlow,-16.5+j*.78,1.85,26.20,.11,.035,.015);}
+    for(let x=-24.5;x<-13.5;x+=.6){const stripe=box(.3,.016,.28,x,.01,14.1,yellow,false,false);stripe.rotation.y=.4;}
+    const serviceLabel=canvasTexture(512,128,ctx=>{ctx.fillStyle='#c3c8b8';ctx.font='bold 45px sans-serif';ctx.fillText('维修作业区 / SERVICE',12,52);ctx.font='21px monospace';ctx.fillText('EASTLINE 07   •   注意设备安全',14,97);});
+    const serviceSign=new T.Mesh(new T.PlaneGeometry(4.2,1.05),new T.MeshStandardMaterial({map:serviceLabel,transparent:true,roughness:.8}));serviceSign.position.set(-21,3.8,26.88);serviceSign.rotation.y=Math.PI;scene.add(serviceSign);
+    // 共享箱体按材质和碰撞属性实例化，射击仍检测实际实例的几何。
+    const boxGroups=new Map();for(const mesh of [...scene.children])if(mesh.isMesh&&mesh.geometry===unit){const hit=surfaces.includes(mesh),key=mesh.material.uuid+'|'+mesh.castShadow+'|'+hit;if(!boxGroups.has(key))boxGroups.set(key,{material:mesh.material,cast:mesh.castShadow,hit,items:[]});boxGroups.get(key).items.push(mesh);}
+    for(const g of boxGroups.values()){if(g.items.length<2)continue;const batch=new T.InstancedMesh(unit,g.material,g.items.length);g.items.forEach((m,i)=>{m.updateMatrix();batch.setMatrixAt(i,m.matrix);scene.remove(m);const j=surfaces.indexOf(m);if(j>=0)surfaces.splice(j,1);});batch.castShadow=g.cast;batch.receiveShadow=true;batch.userData.surface=g.material===concrete?'concrete':'metal';scene.add(batch);if(g.hit)surfaces.push(batch);}
+    world.update = (dt,time,camera) => {
+      sky.material.uniforms.time.value=time;terrain.update(dt,time,camera);
+      beacons.forEach(b=>{b.ring.rotation.y=time*.7;b.light.intensity=b.off?1:5+Math.sin(time*3)*1.5;});
+      boat.position.y=-.7+Math.sin(time*1.3)*.08;boat.rotation.z=Math.sin(time*.87)*.018;
     };
-    world.setQuality = q => { world.quality = q; puddles.visible = q !== 'low'; sun.castShadow = q !== 'low'; renderer.shadowMap.needsUpdate = true; rain.geometry.setDrawRange(0, q === 'low' ? 1100 : 3400); };
+    world.setQuality=q=>{world.quality=q;terrain.setQuality(q);sun.castShadow=q!=='low';const n=q==='high'?3072:2048;if(sun.shadow.mapSize.x!==n){sun.shadow.mapSize.set(n,n);sun.shadow.map?.dispose();sun.shadow.map=null;}renderer.shadowMap.needsUpdate=true;};
     world.setBeacon = (b, off) => { b.off = off; for (const m of [b.screen.material, b.ring.material, b.led.material]) { m.color.set(off ? '#80ddd3' : '#ffad58'); m.emissive.set(off ? '#35b8bd' : '#ff7b26'); } b.light.color.set(off ? '#60d8cc' : '#ff9b50'); };
     return world;
   };

@@ -1,0 +1,29 @@
+{
+  "version": "0.3.0",
+  "gameplayChecks": 13,
+  "allGameplayPassed": true,
+  "restartGeometries": [
+    181,
+    181,
+    181,
+    181
+  ],
+  "mobileScope": "844×390 浏览器触屏模拟，非实体手机",
+  "mobileShots": 3,
+  "mobileReloadedAmmo": 30,
+  "offline": {
+    "version": "0.3.0",
+    "errors": [],
+    "hasTest": false,
+    "requests": []
+  },
+  "size": {
+    "version": "0.3.0",
+    "staticFiles": 12,
+    "staticBytes": 829267,
+    "offlineBytes": 829059,
+    "offlineSha256": "331c9aae47f4673feebbf74afdfbe9e8eb7297a59232803032140a13635bb297",
+    "oldOfflineBytes": 7893868,
+    "reductionPercent": 89.5
+  }
+}

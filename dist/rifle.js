@@ -1,4 +1,4 @@
-/* AR–07 第二版：分段机匣、磨损金属、曲面握把与独立换弹动画。 */
+/* AR–07 第三版：微表面、准直分划、分阶段换弹与多轴弹簧动画。 */
 (function (H) {
   'use strict';
   const T = THREE;
@@ -8,9 +8,9 @@
     const key = new T.DirectionalLight('#ffd0a0', 3.3); key.position.set(-3, 4, -4); scene.add(key);
     const fill = new T.DirectionalLight('#8cb3c9', .7); fill.position.set(2, .5, 2); scene.add(fill);
     const rough = H.art.texture('metal_plate_roughness', 2, 2), normal = H.art.texture('metal_plate_normal', 2, 2);
-    const steel = new T.MeshStandardMaterial({ color: '#4c5559', roughness: .64, metalness: .86, roughnessMap: rough, normalMap: normal, normalScale: new T.Vector2(.065,.065), envMapIntensity: 1.3 });
+    const steel = new T.MeshStandardMaterial({ color: '#4c5559', roughness: .44, metalness: .78, roughnessMap: rough, normalMap: normal, normalScale: new T.Vector2(.065,.065), envMapIntensity: 1.3 });
     const edge = new T.MeshStandardMaterial({ color: '#899294', roughness: .38, metalness: .9, roughnessMap: rough, envMapIntensity: 1.1 });
-    const black = new T.MeshStandardMaterial({ color: '#242c2e', roughness: .78, metalness: .12 });
+    const black = new T.MeshStandardMaterial({ color: '#172023', roughness: .68, metalness: .12 });
     const tan = new T.MeshStandardMaterial({ color: '#6d7163', roughness: .84, metalness: .08 });
     const recess = new T.MeshStandardMaterial({ color: '#11191d', roughness: .94, metalness: .25 });
     const rubber = new T.MeshStandardMaterial({ color: '#2c3331', roughness: .95 });
@@ -45,8 +45,8 @@
     cyl(.021,.28,0,.009,-.80,steel);cyl(.028,.058,0,.009,-.93,edge);cyl(.029,.07,0,.009,-.977,steel,root,24);cyl(.019,.007,0,.009,-1.016,recess);
     for(let i=0;i<6;i++){const cut=box(.011,.045,.035,0,.009,-.973,recess);cut.rotation.z=i*Math.PI/3;}
     for(const side of [-1,1])for(let j=0;j<7;j++){rounded(.003,.019,.028,side*.053,.005,-.39-j*.041,recess,root,.003);rounded(.003,.005,.021,side*.055,.025,-.39-j*.041,edge,root,.001);}
-    rounded(.089,.012,.62,0,.072,-.37,black);
-    for(let j=0;j<28;j++){rounded(.09,.012,.011,0,.084,-.68+j*.025,steel,root,.0015);box(.066,.004,.005,0,.092,-.68+j*.025,edge);}
+    rounded(.058,.012,.62,0,.072,-.37,black);
+    for(let j=0;j<28;j++){rounded(.058,.009,.011,0,.084,-.68+j*.025,steel,root,.0015);box(.040,.003,.005,0,.092,-.68+j*.025,edge);}
     for(const side of [-1,1])for(let j=0;j<6;j++){rounded(.008,.015,.009,side*.063,-.005,-.45-j*.031,steel,root,.001);}
     const foregrip=rounded(.038,.10,.05,0,-.075,-.50,tan);foregrip.rotation.x=-.15;
     // 弹匣为独立可动组，换弹时脱离枪身并重新插入。
@@ -64,8 +64,11 @@
     const hoodShape=new T.Shape();hoodShape.moveTo(-.052,-.043);hoodShape.lineTo(.052,-.043);hoodShape.lineTo(.053,.037);hoodShape.quadraticCurveTo(.052,.063,.028,.067);hoodShape.lineTo(-.028,.067);hoodShape.quadraticCurveTo(-.052,.063,-.053,.037);hoodShape.closePath();
     const hoodHole=new T.Path();hoodHole.moveTo(-.039,-.027);hoodHole.lineTo(-.039,.035);hoodHole.quadraticCurveTo(-.037,.052,-.022,.052);hoodHole.lineTo(.022,.052);hoodHole.quadraticCurveTo(.037,.052,.039,.035);hoodHole.lineTo(.039,-.027);hoodHole.closePath();hoodShape.holes.push(hoodHole);
     const hoodGeo=new T.ExtrudeGeometry(hoodShape,{depth:.055,bevelEnabled:true,bevelSize:.003,bevelThickness:.003,bevelSegments:2,curveSegments:8});const hood=add(hoodGeo,steel,0,.165,-.24);
-    const glass=add(new T.PlaneGeometry(.074,.073),new T.MeshPhysicalMaterial({color:'#7fb7b5',metalness:.3,roughness:.08,transparent:true,opacity:.16,side:T.DoubleSide,depthWrite:false}),0,.176,-.206);glass.renderOrder=3;
-    const redDot=add(new T.SphereGeometry(.0017,10,8),new T.MeshBasicMaterial({color:'#ff5c37'}),0,.176,-.232);redDot.renderOrder=4;
+    const lensMaterial=new T.ShaderMaterial({transparent:true,depthWrite:false,side:T.DoubleSide,uniforms:{sun:{value:H.sunDirection}},
+      vertexShader:`varying vec3 vEye,vFwd,vRight,vUp;varying vec2 vUv;void main(){vUv=uv;vEye=(modelViewMatrix*vec4(position,1.)).xyz;vFwd=mat3(modelViewMatrix)*vec3(0,0,-1);vRight=mat3(modelViewMatrix)*vec3(1,0,0);vUp=mat3(modelViewMatrix)*vec3(0,1,0);gl_Position=projectionMatrix*vec4(vEye,1.);}`,
+      fragmentShader:`varying vec3 vEye,vFwd,vRight,vUp;varying vec2 vUv;void main(){vec3 d=normalize(vEye);float k=max(.001,dot(d,normalize(vFwd)));vec2 a=vec2(dot(d,normalize(vRight)),dot(d,normalize(vUp)))/k;float r=length(a),px=max(fwidth(r),.00012);float dotI=1.-smoothstep(.0011-px,.0011+px,r);float ring=1.-smoothstep(.0004,.0004+px,abs(r-.012));float crossTick=(1.-smoothstep(0.,px*2.,min(abs(a.x),abs(a.y))))*smoothstep(.012,.013,r)*(1.-smoothstep(.016,.018,r));float reticle=dotI+ring*.65+crossTick*.6;
+        float fres=pow(1.-abs(normalize(vEye).z),2.);vec3 coat=mix(vec3(.07,.18,.22),vec3(.35,.16,.065),smoothstep(.1,1.,vUv.y+vUv.x*.3));vec3 col=coat*(.15+fres)+vec3(7.,.28,.055)*reticle;float alpha=clamp(.08+fres*.4+reticle,.0,.92);gl_FragColor=vec4(col,alpha);}`});
+    const glass=add(new T.PlaneGeometry(.074,.073),lensMaterial,0,.176,-.206);glass.renderOrder=3;
     cyl(.018,.035,.064,.15,-.218,black);cyl(.012,.014,.081,.15,-.218,edge).rotation.z=Math.PI/2;
     for(const side of [-1,1])for(const z of [-.23,-.18]){const screw=cyl(.004,.005,side*.056,.133,z,edge,root,8);screw.rotation.z=Math.PI/2;}
     // 纺织袖口与分节手套使用椭球、胶囊而非方块手臂。
@@ -75,9 +78,10 @@
     limb([.22,-.30,.31],[.075,-.17,-.025],.083,.053,sleeve);limb([.075,-.17,-.025],[.042,-.13,-.06],.057,.049,cuff);
     ellipsoid(.035,-.117,-.065,.047,.06,.065,glove);ellipsoid(.005,-.115,-.056,.033,.065,.035,glove);
     for(let j=0;j<3;j++){const finger=limb([.045,-.105-j*.018,-.092],[.002,-.115-j*.018,-.103],.014,.013,glove);}
-    limb([-.26,-.29,.23],[-.105,-.145,-.41],.08,.05,sleeve);limb([-.105,-.145,-.41],[-.047,-.11,-.48],.052,.046,cuff);
-    ellipsoid(-.035,-.094,-.48,.052,.039,.071,glove);
-    for(let j=0;j<4;j++){limb([-.048+j*.025,-.067,-.49],[ -.046+j*.025,-.04,-.51],.013,.012,glove);ellipsoid(-.046+j*.025,-.041,-.53,.012,.017,.021,glove);}
+    const leftHand=new T.Group();root.add(leftHand);
+    limb([-.26,-.29,.23],[-.105,-.145,-.41],.08,.05,sleeve,leftHand);limb([-.105,-.145,-.41],[-.047,-.11,-.48],.052,.046,cuff,leftHand);
+    ellipsoid(-.035,-.094,-.48,.052,.039,.071,glove,leftHand);
+    for(let j=0;j<4;j++){limb([-.048+j*.025,-.067,-.49],[ -.046+j*.025,-.04,-.51],.013,.012,glove,leftHand);ellipsoid(-.046+j*.025,-.041,-.53,.012,.017,.021,glove,leftHand);}
     // 枪身铭文、警告及检验标记。
     const labelCanvas=document.createElement('canvas');labelCanvas.width=512;labelCanvas.height=256;const lc=labelCanvas.getContext('2d');lc.fillStyle='#c0c7bd';lc.font='bold 44px monospace';lc.fillText('AR–07',28,62);lc.font='20px monospace';lc.fillText('EAST HARBOR ARMORY',28,99);lc.fillText('CAL. 5.56 × 45',28,132);lc.fillStyle='#84918b';lc.font='16px monospace';lc.fillText('CC / 07–003182',28,167);lc.fillText('SAFE  •  SEMI  •  AUTO',28,202);
     const label=add(new T.PlaneGeometry(.10,.05),new T.MeshStandardMaterial({map:new T.CanvasTexture(labelCanvas),transparent:true,roughness:.8,polygonOffset:true,polygonOffsetFactor:-1}),.044,-.003,-.072);label.rotation.y=Math.PI/2;
@@ -92,14 +96,49 @@
     const flashLight=new T.PointLight('#ffb261',0,3,2);flashLight.position.set(.1,.1,-.85);root.add(flashLight);flash.visible=false;
     // 按材质合并枪身固定零件，提升几何细节时保持绘制调用可控。
     function merge(parent){const groups=new Map();parent.updateMatrixWorld(true);for(const mesh of [...parent.children]){if(!mesh.isMesh||mesh.material.transparent)continue;mesh.updateMatrix();const geo=mesh.geometry.index?mesh.geometry.toNonIndexed():mesh.geometry.clone();geo.applyMatrix4(mesh.matrix);if(!groups.has(mesh.material))groups.set(mesh.material,[]);groups.get(mesh.material).push(geo);parent.remove(mesh);mesh.geometry.dispose();}for(const [material,geos]of groups){const positions=[],normals=[],uvs=[],colors=[];for(const geo of geos){const p=geo.attributes.position,n=geo.attributes.normal,u=geo.attributes.uv;for(let i=0;i<p.count;i++){positions.push(p.getX(i),p.getY(i),p.getZ(i));normals.push(n.getX(i),n.getY(i),n.getZ(i));uvs.push(u?u.getX(i):0,u?u.getY(i):0);const grain=.88+random()*.12;colors.push(grain,grain,grain);}geo.dispose();}const merged=new T.BufferGeometry();merged.setAttribute('position',new T.Float32BufferAttribute(positions,3));merged.setAttribute('normal',new T.Float32BufferAttribute(normals,3));merged.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));merged.setAttribute('color',new T.Float32BufferAttribute(colors,3));material.vertexColors=true;parent.add(new T.Mesh(merged,material));}}
-    merge(root);merge(magazine);merge(bolt);merge(handGroup);
-    let kick=0,fireTime=0;
-    return {scene,camera,root,fire(){kick=Math.min(.09,kick+.055);fireTime=.045;flash.rotation.z=Math.random()*6;},resize(aspect){camera.aspect=aspect;camera.updateProjectionMatrix();},
-      update(dt,time,state){kick*=Math.exp(-dt*17);fireTime-=dt;flash.visible=fireTime>0;flashLight.intensity=fireTime>0?5:0;const a=state.ads,reload=state.reload,phase=Math.sin(Math.PI*reload),move=state.speed,bob=Math.sin(time*(state.sprint?13:8));
-        root.position.set(T.MathUtils.lerp(.235,0,a)+Math.sin(time*3)*.002*(1-a),T.MathUtils.lerp(-.242,-.176,a)+bob*.005*move*(1-a)-phase*.16,-.48+kick+phase*.045);
-        root.rotation.set(kick*.5-phase*.23+(state.sprint?-.22*(1-a):0),phase*.20,-phase*.42+Math.cos(time*4)*.003*move*(1-a));
-        magazine.position.set(0,-.1-phase*.18,-.285+phase*.035);magazine.rotation.x=phase*.2;bolt.position.z=fireTime>0?.045:0;handGroup.position.y=-phase*.09;
-        camera.fov=T.MathUtils.lerp(64,48,a);camera.updateProjectionMatrix();
-      }};
+    merge(root);merge(magazine);merge(bolt);merge(handGroup);merge(leftHand);
+    // 缩窄金属机匣与导轨，保留手掌和袖口的真实尺度。
+    for(const group of[root,magazine,bolt])for(const mesh of group.children)if(mesh.isMesh){mesh.geometry.scale(.72,1,1);mesh.position.x*=.72;}
+    // 不同微表面共享规则，细节从位置导出；高频项只改变法线与粗糙度。
+    for(const [m,kind]of[[steel,0],[edge,0],[black,1],[tan,1]]){
+      const old=m.onBeforeCompile;m.onBeforeCompile=shader=>{old?.(shader);shader.uniforms.rain={value:1};m.userData.rain=shader.uniforms.rain;
+        shader.vertexShader='varying vec3 vGun;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvGun=position;');
+        shader.fragmentShader='varying vec3 vGun;uniform float rain;\n'+H.glslNoise+shader.fragmentShader;
+        shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
+          float grain=hNoise(vGun.xy*800.)*.12+hNoise(vGun.yz*170.)*.14;float drop=pow(hNoise(vGun.xz*240.),18.)*rain;
+          roughnessFactor=clamp(roughnessFactor+grain-.12,.10,1.);roughnessFactor=mix(roughnessFactor,.11,drop*.85);diffuseColor.rgb*=1.-rain*.04;`);
+      };m.customProgramCacheKey=()=> 'ar07-micro-v3-'+kind;
+    }
+    const springs={back:{x:0,v:0,k:430,c:27},pitch:{x:0,v:0,k:330,c:22},yaw:{x:0,v:0,k:280,c:22},roll:{x:0,v:0,k:240,c:20},swayX:{x:0,v:0,k:100,c:16},swayY:{x:0,v:0,k:100,c:16},land:{x:0,v:0,k:150,c:18}};
+    function spring(s,dt){const count=Math.max(1,Math.ceil(dt/.008)),h=dt/count;for(let j=0;j<count;j++){s.v+=(-s.x*s.k-s.v*s.c)*h;s.x+=s.v*h;}return s.x;}
+    const curve=t=>{t=T.MathUtils.clamp(t,0,1);return t*t*t*(t*(t*6-15)+10);};
+    let fireTime=0,boltTime=1,heat=0,wet=1,step=0,previousSpeed=0,previousGround=true,lastPhase=0,lookX=0,lookY=0;
+    const muzzlePoint=new T.Vector3(0,.009,-1.035),ejectPoint=new T.Vector3(.0526,.02,-.15),temp=new T.Vector3();
+    const api={scene,camera,root,
+      fire(){springs.back.v+=1.6;springs.pitch.v+=1.1;springs.yaw.v+=(Math.random()-.5)*.7;springs.roll.v+=(Math.random()-.5)*1.;fireTime=.035+Math.random()*.02;boltTime=0;heat=Math.min(1,heat+.09);flash.rotation.z=Math.random()*6;},
+      reset(){Object.values(springs).forEach(s=>s.x=s.v=0);fireTime=heat=0;boltTime=1;lastPhase=0;previousGround=true;leftHand.position.set(0,0,0);},
+      look(dx,dy){lookX+=dx;lookY+=dy;},
+      worldPoint(local,worldCamera,out=new T.Vector3()){root.updateMatrix();out.copy(local).applyMatrix4(root.matrix);const f=Math.tan(worldCamera.fov*Math.PI/360)/Math.tan(camera.fov*Math.PI/360);out.x*=f;out.y*=f;return out.applyQuaternion(worldCamera.quaternion).add(worldCamera.position);},
+      muzzle(worldCamera,out){return api.worldPoint(muzzlePoint,worldCamera,out);},eject(worldCamera,out){return api.worldPoint(ejectPoint,worldCamera,out);},
+      resize(aspect){camera.aspect=aspect;camera.updateProjectionMatrix();},
+      update(dt,time,state){const a=state.ads,reload=state.reload,phase=reload>0?curve(reload/.13)*(1-curve((reload-.79)/.21)):0;
+        fireTime-=dt;boltTime+=dt;heat=Math.max(0,heat-dt*.13);flash.visible=fireTime>0;flashMat.opacity=fireTime>0?.75:0;flashLight.intensity=fireTime>0?12:0;
+        wet=T.MathUtils.damp(wet,state.wet??1,1.,dt);key.intensity=T.MathUtils.damp(key.intensity,state.interior?1.15:3.3,3,dt);fill.intensity=state.interior?.3:.7;scene.environment=state.interior&&state.interiorEnvironment?state.interiorEnvironment:H.art.environment;for(const m of[steel,edge,black,tan])if(m.userData.rain)m.userData.rain.value=wet;
+        springs.swayX.v+=T.MathUtils.clamp(lookX,-.2,.2)*1.6;springs.swayY.v+=T.MathUtils.clamp(lookY,-.2,.2)*1.6;lookX=lookY=0;
+        if(!previousGround&&state.grounded)springs.land.v-=.38;previousGround=state.grounded;
+        Object.values(springs).forEach(s=>spring(s,dt));const move=state.speed,bobAmount=move*(1-a*.9),freq=state.sprint?13:8;step+=dt*freq*move;
+        const bobX=Math.sin(step)*.005*bobAmount,bobY=-Math.abs(Math.cos(step))*.007*bobAmount,breath=Math.sin(time*1.7)*.0015;
+        root.position.set(T.MathUtils.lerp(.205,0,a)+bobX+springs.swayX.x*.055,T.MathUtils.lerp(-.226,-.176,a)+bobY+breath-phase*.11+springs.land.x,-.55+springs.back.x*.65+phase*.06);
+        root.rotation.set(springs.pitch.x*.65-phase*.17+(state.sprint?-.27*(1-a):0)+springs.swayY.x,-springs.yaw.x+phase*.30-springs.swayX.x,-springs.roll.x-phase*.48+Math.sin(step)*.006*bobAmount);
+        // 取弹、抽出、插入、压紧、拉机柄各自使用平滑阶段，左手跟随弹匣。
+        let magDrop=0,magBack=0,handX=0,handY=0,handZ=0;
+        if(reload>0){const reach=curve((reload-.08)/.12),pull=curve((reload-.23)/.18),insert=curve((reload-.49)/.19),returnHand=curve((reload-.76)/.2);magDrop=pull*(1-insert);magBack=Math.sin(Math.PI*magDrop)*.03;handX=.035*reach*(1-returnHand);handY=(-.08*reach-.23*magDrop)*(1-returnHand);handZ=.18*reach*(1-returnHand);}
+        magazine.position.set(0,-.1-magDrop*.29,-.285+magBack);magazine.rotation.x=magDrop*.22;leftHand.position.set(handX,handY,handZ);leftHand.rotation.x=magDrop*.12;
+        const travel=boltTime<.075?Math.sin(boltTime/.075*Math.PI):state.ammo===0?.8:0;const rack=state.reloadEmpty&&reload>.78&&reload<.95?Math.sin((reload-.78)/.17*Math.PI):0;bolt.position.z=Math.max(travel,rack)*.045;
+        if(reload>0&&lastPhase<.24&&reload>=.24)api.onReloadPhase?.('out');if(reload>0&&lastPhase<.68&&reload>=.68)api.onReloadPhase?.('in');if(state.reloadEmpty&&lastPhase<.89&&reload>=.89)api.onReloadPhase?.('bolt');lastPhase=reload;
+        camera.fov=T.MathUtils.lerp(64,48,a);camera.updateProjectionMatrix();previousSpeed=move;
+      },
+      stats(){return{heat:+heat.toFixed(2),wet:+wet.toFixed(2),springs:Object.fromEntries(Object.entries(springs).map(([k,s])=>[k,+s.x.toFixed(4)]))};}
+    };return api;
   };
 })(window.Harbor);
